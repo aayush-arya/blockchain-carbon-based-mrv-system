@@ -1,0 +1,23 @@
+{
+  "name": "blue-carbon-mrv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blockchain-Based Blue Carbon Registry & MRV Platform",
+  "workspaces": [
+    "apps/backend",
+    "apps/web",
+    "chaincode/mrv-contract"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "Aayush Arya"
+}

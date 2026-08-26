@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build output
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Flutter / Dart
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.pub-cache/
+apps/mobile/.pub/
+apps/mobile/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/**/generated_plugin_registrant.dart
+*.g.dart
+*.freezed.dart
+
+# Hyperledger Fabric generated material (never commit real crypto material / keys)
+network/test-network/organizations/
+network/test-network/channel-artifacts/
+network/test-network/system-genesis-block/
+network/**/*.tar.gz
+network/**/wallet/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Local dev storage (MinIO/local evidence uploads)
+infra/minio/data/
+apps/backend/local-storage/
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tgz
+*.pem
+*.key
+!infra/**/*.example.*
