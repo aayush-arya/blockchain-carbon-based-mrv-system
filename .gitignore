@@ -41,10 +41,13 @@ apps/mobile/**/generated_plugin_registrant.dart
 *.g.dart
 *.freezed.dart
 
-# Hyperledger Fabric generated material (never commit real crypto material / keys)
-network/test-network/organizations/
-network/test-network/channel-artifacts/
-network/test-network/system-genesis-block/
+# Hyperledger Fabric: fabric-samples is a large, official, third-party tool fetched on demand
+# (see network/README.md) - never vendored into this repo. Generated crypto material, channel
+# artifacts and wallets are equally never committed.
+network/fabric-samples/
+network/**/organizations/
+network/**/channel-artifacts/
+network/**/system-genesis-block/
 network/**/*.tar.gz
 network/**/wallet/
 

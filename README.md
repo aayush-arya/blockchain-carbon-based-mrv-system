@@ -119,9 +119,9 @@ each milestone (see commit history). Current status:
 | 6 | AI/ML pipeline (heuristic classification + coverage) | ✅ done |
 | 7 | Carbon calculation engine | ✅ done |
 | 8 | MRV validation workflow + duplicate detection | ✅ done |
-| 9 | Hyperledger Fabric network | ⬜ planned |
-| 10 | Chaincode | ⬜ planned |
-| 11 | Backend ↔ Fabric integration | ⬜ planned |
+| 9 | Hyperledger Fabric network | ✅ done |
+| 10 | Chaincode | ✅ done |
+| 11 | Backend ↔ Fabric integration | 🔄 in progress |
 | 12 | Next.js dashboard | ⬜ planned |
 | 13 | Flutter mobile app | ⬜ planned |
 | 14 | Offline sync | ⬜ planned |

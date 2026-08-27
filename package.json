@@ -15,6 +15,9 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
+  "overrides": {
+    "serialize-javascript": "^7.1.0"
+  },
   "engines": {
     "node": ">=20"
   },
