@@ -1,13 +1,25 @@
+import { createHash } from 'node:crypto';
+import { env } from '../config/env';
 import { db } from '../db/client';
+import { geographySelect } from '../db/geo';
 import type { EcosystemCode, MrvStatus } from '../db/types';
 import { recordAuditEvent } from './auditService';
+import { recordBlockchainTransaction } from './blockchainTransactionService';
 import { calculateCarbonEstimate } from './carbonCalculationService';
 import { detectDuplicates } from './duplicateDetectionService';
+import { fabric } from './fabricService';
 import { analyzeImage } from './mlClient';
 import { createNotification } from './notificationService';
 import { getObservationById } from './observationService';
 import { readObjectAsBuffer } from './storageService';
 import { AppError, ConflictError, NotFoundError } from '../utils/errors';
+
+/** Canonical hash of the facts that must not silently change between off-chain and on-chain -
+ * lets a caller (or an auditor) detect drift between the Postgres row and the ledger record. */
+function computeMetadataHash(fields: Record<string, unknown>): string {
+  const canonical = JSON.stringify(fields, Object.keys(fields).sort());
+  return createHash('sha256').update(canonical).digest('hex');
+}
 
 async function getMrvRecordOrThrow(id: string) {
   const row = await db.selectFrom('mrv_records').selectAll().where('id', '=', id).executeTakeFirst();
@@ -151,6 +163,53 @@ export async function calculateMrvRecord(mrvId: string, actorId: string) {
   const duplicates = await detectDuplicates(record.observation_id);
   const topDuplicate = duplicates[0] ?? null;
 
+  // Chain call happens before the Postgres write commits the transition, so a Fabric failure
+  // blocks the off-chain state change too rather than letting the two drift out of sync -
+  // see docs/BLOCKCHAIN.md.
+  if (env.FABRIC_ENABLED) {
+    const evidence = await db
+      .selectFrom('evidence_files')
+      .select(['sha256_hash'])
+      .where('observation_id', '=', record.observation_id)
+      .orderBy('uploaded_at', 'asc')
+      .executeTakeFirstOrThrow();
+
+    const location = await db
+      .selectFrom('field_observations')
+      .select([geographySelect.latitude.as('latitude'), geographySelect.longitude.as('longitude')])
+      .where('id', '=', record.observation_id)
+      .executeTakeFirstOrThrow();
+
+    const metadataHash = computeMetadataHash({
+      mrvId,
+      ecosystemCode: breakdown.ecosystem_code,
+      areaM2: breakdown.effective_area_m2,
+      estimatedCarbonTco2e: breakdown.estimated_carbon_tco2e,
+      capturedAt: observation.captured_at.toISOString(),
+    });
+
+    const chainResult = await fabric.createMrvRecord({
+      mrvId,
+      mrvCode: record.mrv_code ?? mrvId,
+      contributorOrg: env.FABRIC_MSP_ID,
+      ecosystemType: breakdown.ecosystem_code,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      capturedAt: observation.captured_at.toISOString(),
+      areaM2: breakdown.effective_area_m2,
+      estimatedCarbonTco2e: breakdown.estimated_carbon_tco2e,
+      aiConfidence: Number(analysis.confidence),
+      evidenceHash: evidence.sha256_hash,
+      metadataHash,
+    });
+    await recordBlockchainTransaction({
+      mrvRecordId: mrvId,
+      chaincodeFunction: 'CreateMRVRecord',
+      fabricTxId: chainResult.txId,
+      submittedBy: actorId,
+    });
+  }
+
   await db
     .updateTable('mrv_records')
     .set({
@@ -198,6 +257,16 @@ export async function approveMrvRecord(mrvId: string, validatorId: string, reaso
   const record = await getMrvRecordOrThrow(mrvId);
   assertStatus(record, 'pending_validation');
 
+  if (env.FABRIC_ENABLED) {
+    const chainResult = await fabric.validateMrvRecord(mrvId, validatorId, reason ?? '');
+    await recordBlockchainTransaction({
+      mrvRecordId: mrvId,
+      chaincodeFunction: 'ValidateMRVRecord',
+      fabricTxId: chainResult.txId,
+      submittedBy: validatorId,
+    });
+  }
+
   await db.updateTable('mrv_records').set({ status: 'verified' }).where('id', '=', mrvId).execute();
   await db
     .insertInto('validation_events')
@@ -219,6 +288,16 @@ export async function approveMrvRecord(mrvId: string, validatorId: string, reaso
 export async function rejectMrvRecord(mrvId: string, validatorId: string, reason: string): Promise<void> {
   const record = await getMrvRecordOrThrow(mrvId);
   assertStatus(record, 'pending_validation');
+
+  if (env.FABRIC_ENABLED) {
+    const chainResult = await fabric.rejectMrvRecord(mrvId, validatorId, reason);
+    await recordBlockchainTransaction({
+      mrvRecordId: mrvId,
+      chaincodeFunction: 'RejectMRVRecord',
+      fabricTxId: chainResult.txId,
+      submittedBy: validatorId,
+    });
+  }
 
   await db
     .updateTable('mrv_records')
@@ -248,6 +327,95 @@ export async function rejectMrvRecord(mrvId: string, validatorId: string, reason
   });
 }
 
+/** VERIFIED -> TOKENIZED. Only reachable once a validator has approved the record - the
+ * chaincode enforces the same rule independently (see mrvContract.js's transition guard), so
+ * this can't be bypassed even by a bug here. Asset id mirrors the human-readable MRV code
+ * (MRV-000241 -> BC-000241) rather than a new counter, so the two are visibly correlated. */
+export async function tokenizeMrvRecord(mrvId: string, actorId: string) {
+  const record = await getMrvRecordOrThrow(mrvId);
+  assertStatus(record, 'verified');
+
+  if (!env.FABRIC_ENABLED) {
+    throw new AppError(
+      503,
+      'BLOCKCHAIN_DISABLED',
+      'Tokenization requires the Fabric network (FABRIC_ENABLED=false)'
+    );
+  }
+
+  const observation = await db
+    .selectFrom('field_observations')
+    .selectAll()
+    .where('id', '=', record.observation_id)
+    .executeTakeFirstOrThrow();
+  const evidence = await db
+    .selectFrom('evidence_files')
+    .select(['sha256_hash'])
+    .where('observation_id', '=', record.observation_id)
+    .orderBy('uploaded_at', 'asc')
+    .executeTakeFirstOrThrow();
+  const ecosystemType = await db
+    .selectFrom('ecosystem_types')
+    .select('code')
+    .where('id', '=', observation.ecosystem_type_id)
+    .executeTakeFirstOrThrow();
+
+  const metadataHash = computeMetadataHash({
+    mrvId,
+    ecosystemCode: ecosystemType.code,
+    areaM2: Number(record.estimated_area_m2),
+    estimatedCarbonTco2e: Number(record.estimated_carbon_tco2e),
+    capturedAt: observation.captured_at.toISOString(),
+  });
+
+  const assetId = (record.mrv_code ?? mrvId).replace('MRV-', 'BC-');
+
+  const chainResult = await fabric.issueCarbonToken(mrvId, assetId, env.FABRIC_MSP_ID);
+  await recordBlockchainTransaction({
+    mrvRecordId: mrvId,
+    chaincodeFunction: 'IssueCarbonToken',
+    fabricTxId: chainResult.txId,
+    submittedBy: actorId,
+  });
+
+  await db
+    .insertInto('blockchain_assets')
+    .values({
+      mrv_record_id: mrvId,
+      asset_id: assetId,
+      fabric_tx_id: chainResult.txId,
+      channel_name: env.FABRIC_CHANNEL_NAME,
+      chaincode_name: env.FABRIC_CHAINCODE_NAME,
+      evidence_hash: evidence.sha256_hash,
+      metadata_hash: metadataHash,
+      ledger_status: 'committed',
+      committed_at: new Date(),
+    })
+    .execute();
+
+  await db.updateTable('mrv_records').set({ status: 'tokenized' }).where('id', '=', mrvId).execute();
+
+  await recordAuditEvent({
+    actorId,
+    action: 'mrv.tokenize',
+    entityType: 'mrv_records',
+    entityId: mrvId,
+    metadata: { assetId },
+  });
+
+  const contributorId = await getMrvOwnerContributorId(mrvId);
+  await createNotification({
+    userId: contributorId,
+    type: 'token_issued',
+    title: 'Carbon asset issued',
+    message: `${assetId} has been issued for ${record.mrv_code ?? mrvId}.`,
+    relatedEntityType: 'mrv_records',
+    relatedEntityId: mrvId,
+  });
+
+  return { assetId, txId: chainResult.txId };
+}
+
 export async function getMrvRecordDetail(mrvId: string) {
   const record = await getMrvRecordOrThrow(mrvId);
   const observation = await getObservationById(record.observation_id);
@@ -272,6 +440,13 @@ export async function getMrvRecordDetail(mrvId: string) {
     .where('mrv_record_id', '=', mrvId)
     .executeTakeFirst();
 
+  const blockchainTransactions = await db
+    .selectFrom('blockchain_transactions')
+    .selectAll()
+    .where('mrv_record_id', '=', mrvId)
+    .orderBy('created_at', 'asc')
+    .execute();
+
   const aiAnalysis = record.ai_analysis_id
     ? await db.selectFrom('ai_analysis').selectAll().where('id', '=', record.ai_analysis_id).executeTakeFirst()
     : null;
@@ -282,6 +457,7 @@ export async function getMrvRecordDetail(mrvId: string) {
     aiAnalysis: aiAnalysis ?? null,
     validationEvents,
     blockchainAsset: blockchainAsset ?? null,
+    blockchainTransactions,
   };
 }
 

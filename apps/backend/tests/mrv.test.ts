@@ -56,8 +56,12 @@ describe('MRV record lifecycle', () => {
         .where('contributor_id', 'in', userIds);
 
       // Deletion order follows the FK graph: mrv_records is ON DELETE RESTRICT from
-      // field_observations (by design - MRV history is never cascade-deleted), and
-      // validation_events/blockchain_assets cascade from mrv_records.
+      // field_observations, and blockchain_transactions/blockchain_assets are ON DELETE
+      // RESTRICT from mrv_records too (all by design - none of this history cascade-deletes).
+      // validation_events is the one table that does cascade from mrv_records.
+      const mrvRecordIds = db.selectFrom('mrv_records').select('id').where('observation_id', 'in', observationIds);
+      await db.deleteFrom('blockchain_transactions').where('mrv_record_id', 'in', mrvRecordIds).execute();
+      await db.deleteFrom('blockchain_assets').where('mrv_record_id', 'in', mrvRecordIds).execute();
       await db.deleteFrom('mrv_records').where('observation_id', 'in', observationIds).execute();
       await db.deleteFrom('field_observations').where('contributor_id', 'in', userIds).execute();
       await db.deleteFrom('users').where('email', 'in', testEmails).execute();
@@ -65,7 +69,10 @@ describe('MRV record lifecycle', () => {
     await closeDatabaseConnection();
   });
 
-  it('walks a record through draft -> submitted -> ai_analyzed -> pending_validation -> verified', async () => {
+  it(
+    'walks a record through draft -> submitted -> ai_analyzed -> pending_validation -> verified -> tokenized',
+    { timeout: 30000 },
+    async () => {
     const operator = await registerAs('field_operator');
     const validator = await registerAs('validator');
     const observationId = await createObservation(operator.accessToken, 'A');
@@ -107,17 +114,60 @@ describe('MRV record lifecycle', () => {
     expect(approve.status).toBe(200);
     expect(approve.body.status).toBe('verified');
 
+    // field_operators can't tokenize - only validator/admin, and only once.
+    const operatorTokenize = await request(app)
+      .post(`/api/mrv/${mrvId}/tokenize`)
+      .set('Authorization', `Bearer ${operator.accessToken}`);
+    expect(operatorTokenize.status).toBe(403);
+
+    const tokenize = await request(app)
+      .post(`/api/mrv/${mrvId}/tokenize`)
+      .set('Authorization', `Bearer ${validator.accessToken}`);
+    expect(tokenize.status).toBe(200);
+    expect(tokenize.body.assetId).toMatch(/^BC-\d{6}$/);
+    expect(tokenize.body.txId).toBeTruthy();
+
+    const secondTokenize = await request(app)
+      .post(`/api/mrv/${mrvId}/tokenize`)
+      .set('Authorization', `Bearer ${validator.accessToken}`);
+    expect(secondTokenize.status).toBe(409);
+
     const detail = await request(app)
       .get(`/api/mrv/${mrvId}`)
       .set('Authorization', `Bearer ${operator.accessToken}`);
     expect(detail.status).toBe(200);
-    expect(detail.body.mrvRecord.status).toBe('verified');
+    expect(detail.body.mrvRecord.status).toBe('tokenized');
     expect(detail.body.mrvRecord.observation.id).toBe(observationId);
     expect(detail.body.mrvRecord.aiAnalysis).not.toBeNull();
     expect(detail.body.mrvRecord.validationEvents).toHaveLength(1);
     expect(detail.body.mrvRecord.validationEvents[0].action).toBe('approve');
     expect(detail.body.mrvRecord.calculation_breakdown.formula).toContain('ANNUAL');
-  });
+    expect(detail.body.mrvRecord.blockchainAsset.asset_id).toBe(tokenize.body.assetId);
+    expect(detail.body.mrvRecord.blockchainTransactions.map((t: { chaincode_function: string }) => t.chaincode_function)).toEqual([
+      'CreateMRVRecord',
+      'ValidateMRVRecord',
+      'IssueCarbonToken',
+    ]);
+
+    const assetPage = await request(app)
+      .get(`/api/assets/${tokenize.body.assetId}`)
+      .set('Authorization', `Bearer ${operator.accessToken}`);
+    expect(assetPage.status).toBe(200);
+    expect(assetPage.body.asset.mrv_code).toBe(created.body.mrvRecord.mrv_code);
+
+    const explorerList = await request(app)
+      .get('/api/blockchain/transactions')
+      .set('Authorization', `Bearer ${operator.accessToken}`);
+    expect(explorerList.status).toBe(200);
+    expect(explorerList.body.transactions.some((t: { fabric_tx_id: string }) => t.fabric_tx_id === tokenize.body.txId)).toBe(true);
+
+    const txDetail = await request(app)
+      .get(`/api/blockchain/transactions/${tokenize.body.txId}`)
+      .set('Authorization', `Bearer ${operator.accessToken}`);
+    expect(txDetail.status).toBe(200);
+    expect(txDetail.body.transaction.mrv_code).toBe(created.body.mrvRecord.mrv_code);
+    }
+  );
 
   it('rejects invalid state transitions with 409', async () => {
     const operator = await registerAs('field_operator');
@@ -143,7 +193,7 @@ describe('MRV record lifecycle', () => {
     expect(doubleSubmit.status).toBe(409);
   });
 
-  it('supports the rejection path with a required reason', async () => {
+  it('supports the rejection path with a required reason', { timeout: 15000 }, async () => {
     const operator = await registerAs('field_operator');
     const validator = await registerAs('validator');
     const observationId = await createObservation(operator.accessToken, 'C');
@@ -193,7 +243,7 @@ describe('MRV record lifecycle', () => {
     expect(operatorApprove.status).toBe(403);
   });
 
-  it('flags a geo+time+ecosystem proximity duplicate at calculation time', async () => {
+  it('flags a geo+time+ecosystem proximity duplicate at calculation time', { timeout: 15000 }, async () => {
     const operator = await registerAs('field_operator');
     const sharedTime = new Date().toISOString();
 

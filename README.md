@@ -121,7 +121,7 @@ each milestone (see commit history). Current status:
 | 8 | MRV validation workflow + duplicate detection | ✅ done |
 | 9 | Hyperledger Fabric network | ✅ done |
 | 10 | Chaincode | ✅ done |
-| 11 | Backend ↔ Fabric integration | 🔄 in progress |
+| 11 | Backend ↔ Fabric integration | ✅ done |
 | 12 | Next.js dashboard | ⬜ planned |
 | 13 | Flutter mobile app | ⬜ planned |
 | 14 | Offline sync | ⬜ planned |

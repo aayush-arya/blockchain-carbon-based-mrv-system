@@ -9,6 +9,7 @@ import {
   listMrvRecords,
   runAiAnalysisForMrv,
   submitMrvRecord,
+  tokenizeMrvRecord,
 } from '../services/mrvService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ForbiddenError } from '../utils/errors';
@@ -75,6 +76,16 @@ mrvRouter.post(
     await assertOwnerOrAdmin(req.user!, req.params.id);
     const { breakdown, duplicates } = await calculateMrvRecord(req.params.id, req.user!.id);
     res.status(200).json({ status: 'pending_validation', breakdown, duplicates });
+  })
+);
+
+mrvRouter.post(
+  '/:id/tokenize',
+  authenticate,
+  authorize('validator', 'admin'),
+  asyncHandler(async (req, res) => {
+    const result = await tokenizeMrvRecord(req.params.id, req.user!.id);
+    res.status(200).json({ status: 'tokenized', ...result });
   })
 );
 

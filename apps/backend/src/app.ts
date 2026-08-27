@@ -6,7 +6,9 @@ import pinoHttp from 'pino-http';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestId } from './middleware/requestId';
+import { assetsRouter } from './routes/assets';
 import { authRouter } from './routes/auth';
+import { blockchainRouter } from './routes/blockchain';
 import { carbonRouter } from './routes/carbon';
 import { evidenceRouter } from './routes/evidence';
 import { healthRouter } from './routes/health';
@@ -51,6 +53,8 @@ export function createApp(): Express {
   app.use('/api/carbon', carbonRouter);
   app.use('/api/mrv', mrvRouter);
   app.use('/api/validation', validationRouter);
+  app.use('/api/blockchain', blockchainRouter);
+  app.use('/api/assets', assetsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

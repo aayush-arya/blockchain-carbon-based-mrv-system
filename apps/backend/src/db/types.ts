@@ -199,6 +199,19 @@ export interface NotificationsTable {
   created_at: CreatedAt;
 }
 
+export type ChaincodeFunction = 'CreateMRVRecord' | 'ValidateMRVRecord' | 'RejectMRVRecord' | 'IssueCarbonToken';
+
+export interface BlockchainTransactionsTable {
+  id: Generated<string>;
+  mrv_record_id: string;
+  chaincode_function: ChaincodeFunction;
+  fabric_tx_id: string;
+  channel_name: string;
+  chaincode_name: string;
+  submitted_by: string | null;
+  created_at: CreatedAt;
+}
+
 export interface RefreshTokensTable {
   id: Generated<string>;
   user_id: string;
@@ -222,4 +235,5 @@ export interface Database {
   audit_logs: AuditLogsTable;
   notifications: NotificationsTable;
   refresh_tokens: RefreshTokensTable;
+  blockchain_transactions: BlockchainTransactionsTable;
 }

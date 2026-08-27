@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { env } from '../config/env';
 import { checkDatabaseConnection } from '../db/client';
+import { checkFabricHealth } from '../services/fabricService';
 import { checkMlServiceHealth } from '../services/mlClient';
 import { storage } from '../services/storageService';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -10,10 +11,11 @@ export const healthRouter = Router();
 type ComponentStatus = 'ok' | 'error' | 'disabled';
 
 async function checkComponents(): Promise<Record<string, { status: ComponentStatus; detail?: string }>> {
-  const [dbOk, storageOk, aiOk] = await Promise.all([
+  const [dbOk, storageOk, aiOk, fabricOk] = await Promise.all([
     checkDatabaseConnection(),
     storage.isHealthy(),
     checkMlServiceHealth(),
+    checkFabricHealth(),
   ]);
 
   return {
@@ -27,9 +29,11 @@ async function checkComponents(): Promise<Record<string, { status: ComponentStat
     ai_service: aiOk
       ? { status: 'ok' }
       : { status: 'error', detail: `Could not reach ${env.ML_SERVICE_URL}` },
-    blockchain: env.FABRIC_ENABLED
-      ? { status: 'disabled', detail: 'Fabric integration not wired up yet.' }
-      : { status: 'disabled', detail: 'FABRIC_ENABLED=false' },
+    blockchain: !env.FABRIC_ENABLED
+      ? { status: 'disabled', detail: 'FABRIC_ENABLED=false' }
+      : fabricOk
+        ? { status: 'ok', detail: `channel=${env.FABRIC_CHANNEL_NAME}` }
+        : { status: 'error', detail: 'Could not reach the Fabric network/chaincode' },
   };
 }
 
