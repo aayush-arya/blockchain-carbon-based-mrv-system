@@ -16,7 +16,9 @@
     "test": "npm run test --workspaces --if-present"
   },
   "overrides": {
-    "serialize-javascript": "^7.1.0"
+    "serialize-javascript": "^7.1.0",
+    "diff": "^9.0.0",
+    "postcss": "^8.5.26"
   },
   "engines": {
     "node": ">=20"

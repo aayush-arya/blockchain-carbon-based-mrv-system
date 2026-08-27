@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design tokens. "Climate intelligence + enterprise blockchain": a deep, restrained teal
+  (not bright ecological green) as the one brand color, warm off-white surfaces in light mode,
+  a deep navy-black "command-center" dark mode, and status colors reserved strictly for
+  state (verified/pending/rejected) rather than decoration.
+*/
+:root {
+  --surface: 40 20% 98%;
+  --surface-raised: 0 0% 100%;
+  --surface-sunken: 220 16% 95%;
+  --border: 220 13% 91%;
+  --border-subtle: 220 15% 94%;
+
+  --ink: 222 20% 12%;
+  --ink-muted: 222 10% 40%;
+  --ink-faint: 222 8% 60%;
+
+  --brand-50: 175 45% 96%;
+  --brand-100: 175 45% 91%;
+  --brand-200: 176 42% 82%;
+  --brand-300: 177 42% 68%;
+  --brand-400: 177 48% 50%;
+  --brand-500: 178 65% 32%;
+  --brand-600: 178 68% 26%;
+  --brand-700: 178 70% 20%;
+  --brand-800: 179 62% 15%;
+  --brand-900: 180 55% 10%;
+
+  --status-success: 142 60% 30%;
+  --status-success-bg: 142 55% 94%;
+  --status-warning: 36 85% 42%;
+  --status-warning-bg: 43 90% 94%;
+  --status-danger: 355 62% 45%;
+  --status-danger-bg: 355 70% 96%;
+  --status-info: 210 70% 46%;
+  --status-info-bg: 210 70% 95%;
+  --status-neutral: 220 9% 46%;
+  --status-neutral-bg: 220 14% 94%;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.dark {
+  --surface: 222 32% 7%;
+  --surface-raised: 222 27% 10%;
+  --surface-sunken: 222 34% 5%;
+  --border: 222 20% 19%;
+  --border-subtle: 222 22% 14%;
+
+  --ink: 210 25% 96%;
+  --ink-muted: 212 12% 66%;
+  --ink-faint: 212 10% 46%;
+
+  --brand-50: 178 40% 12%;
+  --brand-100: 178 42% 16%;
+  --brand-200: 177 42% 22%;
+  --brand-300: 177 42% 32%;
+  --brand-400: 177 50% 45%;
+  --brand-500: 176 60% 52%;
+  --brand-600: 176 65% 60%;
+  --brand-700: 175 68% 70%;
+  --brand-800: 175 60% 84%;
+  --brand-900: 175 50% 93%;
+
+  --status-success: 142 55% 52%;
+  --status-success-bg: 142 40% 14%;
+  --status-warning: 40 85% 58%;
+  --status-warning-bg: 40 60% 14%;
+  --status-danger: 355 70% 62%;
+  --status-danger-bg: 355 50% 16%;
+  --status-info: 210 80% 62%;
+  --status-info-bg: 210 55% 15%;
+  --status-neutral: 220 10% 65%;
+  --status-neutral-bg: 220 15% 15%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--surface));
+  color: hsl(var(--ink));
+}
+
+::selection {
+  background-color: hsl(var(--brand-200) / 0.6);
+}
+
+.glass {
+  background-color: hsl(var(--surface-raised) / 0.72);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+}
+
+.grid-faint-bg {
+  background-image:
+    linear-gradient(hsl(var(--border-subtle)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border-subtle)) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}
