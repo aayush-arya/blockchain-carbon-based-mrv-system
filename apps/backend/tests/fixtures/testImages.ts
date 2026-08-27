@@ -24,6 +24,16 @@ const BASE64_IMAGES: Record<string, string> = {
 
 export type TestImageKey = keyof typeof BASE64_IMAGES;
 
+/**
+ * Returns the fixture with a random trailer appended after the JPEG's EOI marker - decoders
+ * (verified against Pillow) ignore trailing bytes and decode identical pixels, but the file's
+ * sha256 changes every call. This matters because the Fabric ledger, unlike Postgres, is never
+ * reset between test runs (see docs/BLOCKCHAIN.md - that's the whole point of a ledger), so a
+ * static fixture's evidence hash from a previous successful run would permanently collide with
+ * the chaincode's on-chain duplicate-hash guard on every future run.
+ */
 export function getTestImage(key: TestImageKey): Buffer {
-  return Buffer.from(BASE64_IMAGES[key], 'base64');
+  const base = Buffer.from(BASE64_IMAGES[key], 'base64');
+  const trailer = Buffer.from(`run-${Date.now()}-${Math.random().toString(36).slice(2)}`, 'utf8');
+  return Buffer.concat([base, trailer]);
 }
