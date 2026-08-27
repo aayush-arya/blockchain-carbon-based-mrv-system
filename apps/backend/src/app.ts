@@ -24,7 +24,18 @@ export function createApp(): Express {
   app.disable('x-powered-by');
   app.use(requestId);
   app.use(helmet());
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  app.use(
+    cors({
+      // In development, allow any localhost port (the dashboard's dev server port can shift
+      // when the default is taken) rather than one fixed origin. Production stays a single
+      // configured origin.
+      origin:
+        env.NODE_ENV === 'development'
+          ? /^https?:\/\/localhost:\d+$/
+          : env.CORS_ORIGIN,
+      credentials: true,
+    })
+  );
   app.use(
     pinoHttp({
       logger,

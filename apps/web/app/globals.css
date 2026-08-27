@@ -44,6 +44,16 @@
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Chart categorical palette - first 3 slots of the dataviz skill's reference palette,
+     the subset explicitly validated for all-pairs CVD-safe adjacency in both light and dark
+     (not hand-picked; re-validate with scripts/validate_palette.js before changing). Light
+     and dark are each their own validated step per the skill, not a mechanical flip. */
+  --chart-mangrove: 159 73% 40%; /* slot 3 "aqua" #1baf7a */
+  --chart-seagrass: 213 68% 50%; /* slot 1 "blue" #2a78d6 */
+  --chart-saltmarsh: 17 82% 56%; /* slot 2 "orange" #eb6834 */
+  --chart-grid: 220 15% 89%;
+  --chart-axis: 220 10% 60%;
 }
 
 .dark {
@@ -78,6 +88,12 @@
   --status-info-bg: 210 55% 15%;
   --status-neutral: 220 10% 65%;
   --status-neutral-bg: 220 15% 15%;
+
+  --chart-mangrove: 159 73% 36%; /* slot 3 dark #199e70 */
+  --chart-seagrass: 213 77% 56%; /* slot 1 dark #3987e5 */
+  --chart-saltmarsh: 17 70% 50%; /* slot 2 dark #d95926 */
+  --chart-grid: 222 20% 18%;
+  --chart-axis: 212 10% 50%;
 }
 
 * {

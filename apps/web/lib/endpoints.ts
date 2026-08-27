@@ -38,6 +38,24 @@ export const systemApi = {
   health: () => api.get<SystemHealth>('/api/system/health'),
 };
 
+export interface DashboardAnalytics {
+  totalObservations: number;
+  verifiedMrvRecords: number;
+  tokenizedRecords: number;
+  pendingValidation: number;
+  rejectedRecords: number;
+  estimatedCarbonTotal: number;
+  validationSuccessRate: number | null;
+  ecosystemDistribution: { ecosystemCode: EcosystemCode; count: number }[];
+  aiConfidenceDistribution: { bucket: number; count: number }[];
+  recentMrvRecords: MrvRecordSummary[];
+  recentBlockchainTransactions: (BlockchainTransactionRef & { mrv_code: string })[];
+}
+
+export const analyticsApi = {
+  dashboard: () => api.get<DashboardAnalytics>('/api/analytics/dashboard'),
+};
+
 export const carbonApi = {
   ecosystemTypes: () => api.get<{ ecosystemTypes: EcosystemType[] }>('/api/carbon/ecosystem-types'),
   factors: () => api.get<{ carbonFactors: CarbonFactor[] }>('/api/carbon/factors'),

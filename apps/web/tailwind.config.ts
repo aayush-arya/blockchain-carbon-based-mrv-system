@@ -44,6 +44,13 @@ const config: Config = {
           neutral: 'hsl(var(--status-neutral))',
           'neutral-bg': 'hsl(var(--status-neutral-bg))',
         },
+        chart: {
+          mangrove: 'hsl(var(--chart-mangrove))',
+          seagrass: 'hsl(var(--chart-seagrass))',
+          saltmarsh: 'hsl(var(--chart-saltmarsh))',
+          grid: 'hsl(var(--chart-grid))',
+          axis: 'hsl(var(--chart-axis))',
+        },
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
