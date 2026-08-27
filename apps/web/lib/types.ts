@@ -185,6 +185,19 @@ export interface HealthComponent {
   detail?: string;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown>;
+  ip_address: string | null;
+  created_at: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_role: UserRole | null;
+}
+
 export interface SystemHealth {
   status: 'ok' | 'degraded';
   timestamp: string;

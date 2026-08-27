@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestId } from './middleware/requestId';
 import { analyticsRouter } from './routes/analytics';
 import { assetsRouter } from './routes/assets';
+import { auditRouter } from './routes/audit';
 import { authRouter } from './routes/auth';
 import { blockchainRouter } from './routes/blockchain';
 import { carbonRouter } from './routes/carbon';
@@ -68,6 +69,7 @@ export function createApp(): Express {
   app.use('/api/blockchain', blockchainRouter);
   app.use('/api/assets', assetsRouter);
   app.use('/api/analytics', analyticsRouter);
+  app.use('/api/audit', auditRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

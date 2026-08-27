@@ -1,6 +1,7 @@
 import { api } from './api';
 import type {
   AiAnalysis,
+  AuditLogEntry,
   BlockchainAsset,
   BlockchainTransactionRef,
   CarbonCalculationBreakdown,
@@ -16,6 +17,16 @@ import type {
   SystemHealth,
   User,
 } from './types';
+
+/**
+ * `new URLSearchParams(obj)` stringifies an `undefined` property as the literal text
+ * "undefined" instead of omitting it, which turns "no filter" into "filter by the string
+ * undefined". Drop nullish values first.
+ */
+function toQueryString(params: Record<string, unknown>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null);
+  return new URLSearchParams(entries as [string, string][]).toString();
+}
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -90,14 +101,9 @@ export const observationsApi = {
   },
   list: (params: { page?: number; pageSize?: number; ecosystemCode?: EcosystemCode; contributorId?: string } = {}) =>
     api.get<{ observations: ObservationSummary[]; page: number; pageSize: number }>(
-      `/api/observations?${new URLSearchParams(params as Record<string, string>).toString()}`
+      `/api/observations?${toQueryString(params)}`
     ),
   get: (id: string) => api.get<{ observation: ObservationDetail }>(`/api/observations/${id}`),
-};
-
-export const evidenceUrl = (evidenceFileId: string) => {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
-  return `${base}/api/evidence/${evidenceFileId}`;
 };
 
 export const mrvApi = {
@@ -127,7 +133,7 @@ export const mrvApi = {
   get: (id: string) => api.get<{ mrvRecord: MrvRecordDetail }>(`/api/mrv/${id}`),
   list: (params: { page?: number; pageSize?: number; status?: MrvStatus; ecosystemCode?: EcosystemCode } = {}) =>
     api.get<{ mrvRecords: MrvRecordSummary[]; page: number; pageSize: number }>(
-      `/api/mrv?${new URLSearchParams(params as Record<string, string>).toString()}`
+      `/api/mrv?${toQueryString(params)}`
     ),
 };
 
@@ -145,7 +151,7 @@ export const blockchainApi = {
       transactions: (BlockchainTransactionRef & { mrv_code: string; mrv_status: MrvStatus })[];
       page: number;
       pageSize: number;
-    }>(`/api/blockchain/transactions?${new URLSearchParams(params as Record<string, string>).toString()}`),
+    }>(`/api/blockchain/transactions?${toQueryString(params)}`),
   transaction: (txId: string) =>
     api.get<{
       transaction: BlockchainTransactionRef & {
@@ -156,6 +162,13 @@ export const blockchainApi = {
         submitted_by_name: string | null;
       };
     }>(`/api/blockchain/transactions/${txId}`),
+};
+
+export const auditApi = {
+  list: (params: { page?: number; pageSize?: number; action?: string; entityType?: string } = {}) =>
+    api.get<{ logs: AuditLogEntry[]; actions: string[]; page: number; pageSize: number }>(
+      `/api/audit?${toQueryString(params)}`
+    ),
 };
 
 export const assetsApi = {
