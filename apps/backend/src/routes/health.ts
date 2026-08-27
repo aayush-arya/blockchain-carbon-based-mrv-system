@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { env } from '../config/env';
 import { checkDatabaseConnection } from '../db/client';
+import { checkMlServiceHealth } from '../services/mlClient';
 import { storage } from '../services/storageService';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -9,7 +10,11 @@ export const healthRouter = Router();
 type ComponentStatus = 'ok' | 'error' | 'disabled';
 
 async function checkComponents(): Promise<Record<string, { status: ComponentStatus; detail?: string }>> {
-  const [dbOk, storageOk] = await Promise.all([checkDatabaseConnection(), storage.isHealthy()]);
+  const [dbOk, storageOk, aiOk] = await Promise.all([
+    checkDatabaseConnection(),
+    storage.isHealthy(),
+    checkMlServiceHealth(),
+  ]);
 
   return {
     api: { status: 'ok' },
@@ -19,7 +24,9 @@ async function checkComponents(): Promise<Record<string, { status: ComponentStat
     object_storage: storageOk
       ? { status: 'ok', detail: `driver=${env.STORAGE_DRIVER}` }
       : { status: 'error', detail: `driver=${env.STORAGE_DRIVER} unreachable` },
-    ai_service: { status: 'disabled', detail: 'Wired up in a later phase.' },
+    ai_service: aiOk
+      ? { status: 'ok' }
+      : { status: 'error', detail: `Could not reach ${env.ML_SERVICE_URL}` },
     blockchain: env.FABRIC_ENABLED
       ? { status: 'disabled', detail: 'Fabric integration not wired up yet.' }
       : { status: 'disabled', detail: 'FABRIC_ENABLED=false' },

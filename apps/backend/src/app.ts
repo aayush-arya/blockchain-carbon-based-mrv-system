@@ -10,7 +10,9 @@ import { authRouter } from './routes/auth';
 import { carbonRouter } from './routes/carbon';
 import { evidenceRouter } from './routes/evidence';
 import { healthRouter } from './routes/health';
+import { mrvRouter } from './routes/mrv';
 import { observationsRouter } from './routes/observations';
+import { validationRouter } from './routes/validation';
 import { logger } from './utils/logger';
 
 export function createApp(): Express {
@@ -47,6 +49,8 @@ export function createApp(): Express {
   app.use('/api/observations', observationsRouter);
   app.use('/api/evidence', evidenceRouter);
   app.use('/api/carbon', carbonRouter);
+  app.use('/api/mrv', mrvRouter);
+  app.use('/api/validation', validationRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

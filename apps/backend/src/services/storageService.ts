@@ -124,6 +124,17 @@ class S3StorageDriver implements StorageDriver {
 export const storage: StorageDriver =
   env.STORAGE_DRIVER === 's3' ? new S3StorageDriver() : new LocalStorageDriver(env.STORAGE_LOCAL_PATH);
 
+/** Reads an object fully into memory regardless of driver - used where a caller needs actual
+ * bytes (e.g. forwarding evidence to the AI service) rather than a stream or signed URL. */
+export async function readObjectAsBuffer(key: string): Promise<Buffer> {
+  const { stream } = await storage.getReadStream(key);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
 export function sha256Hex(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }

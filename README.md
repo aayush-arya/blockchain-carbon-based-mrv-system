@@ -118,7 +118,7 @@ each milestone (see commit history). Current status:
 | 5 | Object storage + evidence hashing | ✅ done |
 | 6 | AI/ML pipeline (heuristic classification + coverage) | ✅ done |
 | 7 | Carbon calculation engine | ✅ done |
-| 8 | MRV validation workflow + duplicate detection | 🔄 in progress |
+| 8 | MRV validation workflow + duplicate detection | ✅ done |
 | 9 | Hyperledger Fabric network | ⬜ planned |
 | 10 | Chaincode | ⬜ planned |
 | 11 | Backend ↔ Fabric integration | ⬜ planned |

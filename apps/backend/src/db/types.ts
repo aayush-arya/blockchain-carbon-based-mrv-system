@@ -157,7 +157,7 @@ export interface ValidationEventsTable {
   validator_id: string;
   action: ValidationAction;
   reason: string | null;
-  metadata: ColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
+  metadata: Generated<Record<string, unknown>>;
   created_at: CreatedAt;
 }
 
@@ -182,7 +182,7 @@ export interface AuditLogsTable {
   action: string;
   entity_type: string;
   entity_id: string | null;
-  metadata: ColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
+  metadata: Generated<Record<string, unknown>>;
   ip_address: string | null;
   created_at: CreatedAt;
 }

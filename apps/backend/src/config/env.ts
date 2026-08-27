@@ -27,8 +27,11 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
 
-  ML_SERVICE_URL: z.string().default('http://localhost:8000'),
+  ML_SERVICE_URL: z.string().default('http://localhost:8010'),
   ML_SERVICE_TIMEOUT_MS: z.coerce.number().default(30000),
+
+  DUPLICATE_PROXIMITY_METERS: z.coerce.number().default(50),
+  DUPLICATE_TIME_WINDOW_HOURS: z.coerce.number().default(48),
 
   FABRIC_ENABLED: z
     .string()
