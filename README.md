@@ -112,20 +112,20 @@ each milestone (see commit history). Current status:
 | Phase | Area | Status |
 |---|---|---|
 | 1 | Repo scaffold & architecture | ✅ done |
-| 2 | Database schema + PostGIS migrations | 🔄 in progress |
-| 3 | Auth + RBAC | ⬜ planned |
-| 4 | Backend API | ⬜ planned |
-| 5 | Object storage + evidence hashing | ⬜ planned |
-| 6 | AI/ML pipeline | ⬜ planned |
-| 7 | Carbon calculation engine | ⬜ planned |
-| 8 | MRV validation workflow + duplicate detection | ⬜ planned |
+| 2 | Database schema + PostGIS migrations | ✅ done |
+| 3 | Auth + RBAC | ✅ done |
+| 4 | Backend API (observations, evidence, carbon reference data) | ✅ done |
+| 5 | Object storage + evidence hashing | ✅ done |
+| 6 | AI/ML pipeline (heuristic classification + coverage) | ✅ done |
+| 7 | Carbon calculation engine | ✅ done |
+| 8 | MRV validation workflow + duplicate detection | 🔄 in progress |
 | 9 | Hyperledger Fabric network | ⬜ planned |
 | 10 | Chaincode | ⬜ planned |
 | 11 | Backend ↔ Fabric integration | ⬜ planned |
 | 12 | Next.js dashboard | ⬜ planned |
 | 13 | Flutter mobile app | ⬜ planned |
 | 14 | Offline sync | ⬜ planned |
-| 15 | Testing | ⬜ planned |
+| 15 | Testing | 🔄 ongoing per-phase |
 | 16 | Docker + CI/CD | ⬜ planned |
 | 17 | Documentation & polish | ⬜ planned |
 
