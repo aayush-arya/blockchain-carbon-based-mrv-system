@@ -7,7 +7,10 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestId } from './middleware/requestId';
 import { authRouter } from './routes/auth';
+import { carbonRouter } from './routes/carbon';
+import { evidenceRouter } from './routes/evidence';
 import { healthRouter } from './routes/health';
+import { observationsRouter } from './routes/observations';
 import { logger } from './utils/logger';
 
 export function createApp(): Express {
@@ -41,6 +44,9 @@ export function createApp(): Express {
 
   app.use('/api/system', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/observations', observationsRouter);
+  app.use('/api/evidence', evidenceRouter);
+  app.use('/api/carbon', carbonRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

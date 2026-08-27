@@ -1,4 +1,4 @@
-import { sql } from 'kysely';
+import { sql, type SqlBool } from 'kysely';
 
 export interface LatLng {
   latitude: number;
@@ -24,7 +24,7 @@ export const geographySelect = {
 
 /** Meters-based radius filter, for "observations near a coordinate" queries. */
 export function withinMeters(column: string, center: LatLng, radiusMeters: number) {
-  return sql`ST_DWithin(${sql.ref(column)}, ${toGeographyPoint(center)}, ${radiusMeters})`;
+  return sql<SqlBool>`ST_DWithin(${sql.ref(column)}, ${toGeographyPoint(center)}, ${radiusMeters})`;
 }
 
 /** Bounding-box filter, for "observations within geographic bounds" map-viewport queries. */
@@ -32,5 +32,5 @@ export function withinBoundingBox(
   column: string,
   bounds: { minLat: number; minLng: number; maxLat: number; maxLng: number }
 ) {
-  return sql`${sql.ref(column)}::geometry && ST_MakeEnvelope(${bounds.minLng}, ${bounds.minLat}, ${bounds.maxLng}, ${bounds.maxLat}, 4326)`;
+  return sql<SqlBool>`${sql.ref(column)}::geometry && ST_MakeEnvelope(${bounds.minLng}, ${bounds.minLat}, ${bounds.maxLng}, ${bounds.maxLat}, 4326)`;
 }

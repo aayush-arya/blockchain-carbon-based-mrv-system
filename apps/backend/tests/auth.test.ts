@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { db, closeDatabaseConnection } from '../src/db/client';
 
