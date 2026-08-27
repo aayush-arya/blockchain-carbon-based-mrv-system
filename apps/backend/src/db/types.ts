@@ -199,6 +199,15 @@ export interface NotificationsTable {
   created_at: CreatedAt;
 }
 
+export interface RefreshTokensTable {
+  id: Generated<string>;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  revoked_at: Date | null;
+  created_at: CreatedAt;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   users: UsersTable;
@@ -212,4 +221,5 @@ export interface Database {
   blockchain_assets: BlockchainAssetsTable;
   audit_logs: AuditLogsTable;
   notifications: NotificationsTable;
+  refresh_tokens: RefreshTokensTable;
 }
