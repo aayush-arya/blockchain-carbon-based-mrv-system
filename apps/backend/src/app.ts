@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { load as loadYaml } from 'js-yaml';
 import pinoHttp from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestId } from './middleware/requestId';
@@ -19,11 +23,21 @@ import { observationsRouter } from './routes/observations';
 import { validationRouter } from './routes/validation';
 import { logger } from './utils/logger';
 
+// Lives alongside this file in both dev (src/) and production (dist/, copied there by the
+// build script - see package.json) so the same relative path resolves in both.
+const openApiDocument = loadYaml(readFileSync(path.resolve(__dirname, 'openapi.yaml'), 'utf8')) as object;
+
 export function createApp(): Express {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(requestId);
+
+  // Ahead of helmet(): Swagger UI's own bundle relies on an inline init script, which
+  // helmet's default script-src 'self' CSP would block. Lower security bar is fine for a docs
+  // page that renders static reference content and never touches user data itself.
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
   app.use(helmet());
   app.use(
     cors({

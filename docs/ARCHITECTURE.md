@@ -9,7 +9,7 @@ database and communicate over REST:
 |---|---|
 | `apps/backend` | Source of truth REST API. Owns auth, RBAC, the database, storage, carbon calculation, validation workflow, and the Fabric Gateway client. |
 | `apps/web` | Next.js dashboard. Talks only to `apps/backend`'s REST API — never touches the database or Fabric directly. |
-| `apps/mobile` | Flutter field app. Talks to `apps/backend`'s REST API; queues submissions locally (SQLite) when offline. |
+| `apps/mobile` | Flutter field app. Talks to `apps/backend`'s REST API; queues submissions locally (Hive) when offline and syncs automatically on reconnect. |
 | `ml-service` | Stateless Python inference service. `apps/backend` calls it synchronously with an image; it returns classification + coverage + confidence. No direct database or blockchain access. |
 | `chaincode/mrv-contract` | Hyperledger Fabric chaincode. The only thing that can write to the ledger. `apps/backend` submits transactions through the Fabric Gateway SDK; it never bypasses chaincode validation. |
 | `network/` | Hyperledger Fabric test network config (orderer, 2 peer orgs, CAs, channel). Local/dev only. |
@@ -86,7 +86,9 @@ The system never presents (2) as if it were a physical area measurement, and eve
 carries `model_mode` so the UI can show whether a result came from a heuristic or a trained
 model. See `ml-service/README.md` for the current mode and its limitations.
 
-## Security model (summary — full detail in `docs/SECURITY.md`)
+## Security model summary
+
+Full detail in [`SECURITY.md`](SECURITY.md).
 
 - Passwords: bcrypt.
 - Sessions: short-lived JWT access token + longer-lived refresh token.

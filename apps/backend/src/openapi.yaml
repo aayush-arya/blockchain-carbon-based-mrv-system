@@ -1,0 +1,696 @@
+openapi: 3.0.3
+info:
+  title: Blue Carbon Registry & MRV API
+  version: "1.0"
+  description: >
+    REST API for the Blue Carbon Registry & MRV platform. All authenticated routes take a
+    `Bearer <accessToken>` header obtained from /auth/login or /auth/register.
+    Prototype system - see the root README's "Limitations & honesty notes" section.
+servers:
+  - url: http://localhost:4000
+    description: Local development
+tags:
+  - name: Auth
+  - name: Observations
+  - name: Evidence
+  - name: Carbon
+  - name: MRV
+  - name: Validation
+  - name: Blockchain
+  - name: Assets
+  - name: Analytics
+  - name: Audit
+  - name: System
+
+paths:
+  /api/system/health:
+    get:
+      tags: [System]
+      summary: Liveness/readiness check for every backend dependency
+      responses:
+        "200":
+          description: All components healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+        "503":
+          description: At least one component is in an error state (never "disabled" - a
+            disabled component like Fabric with FABRIC_ENABLED=false still returns 200)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a field_operator account (validator/admin are seeded separately, never via open sign-up)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, fullName]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                fullName: { type: string }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        "409": { description: Email already registered, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        "401": { description: Invalid credentials, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotates a refresh token - the used one is revoked, so it can only be replayed once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties: { refreshToken: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AuthResponse" } } } }
+        "401": { description: Invalid or expired refresh token }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties: { refreshToken: { type: string } }
+      responses:
+        "204": { description: Revoked }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { user: { $ref: "#/components/schemas/User" } } }
+
+  /api/observations:
+    post:
+      tags: [Observations]
+      summary: Create a field observation with its evidence photo (field_operator, admin only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ecosystemCode, latitude, longitude, capturedAt, reportedAreaM2, image]
+              properties:
+                ecosystemCode: { $ref: "#/components/schemas/EcosystemCode" }
+                latitude: { type: number }
+                longitude: { type: number }
+                capturedAt: { type: string, format: date-time }
+                reportedAreaM2: { type: number, minimum: 0 }
+                notes: { type: string }
+                image: { type: string, format: binary }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  observationId: { type: string, format: uuid }
+                  evidenceFileId: { type: string, format: uuid }
+                  sha256: { type: string }
+                  duplicateWarning:
+                    nullable: true
+                    type: object
+                    description: Non-blocking - present only if this exact image's hash was already uploaded
+                    properties:
+                      message: { type: string }
+                      observationId: { type: string }
+                      uploadedAt: { type: string, format: date-time }
+    get:
+      tags: [Observations]
+      summary: List observations (field_operator accounts only ever see their own)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: ecosystemCode, in: query, schema: { $ref: "#/components/schemas/EcosystemCode" } }
+        - { name: contributorId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  observations: { type: array, items: { $ref: "#/components/schemas/ObservationSummary" } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+
+  /api/observations/{id}:
+    get:
+      tags: [Observations]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { observation: { $ref: "#/components/schemas/ObservationDetail" } } }
+        "403": { description: Not your observation (field_operator) }
+        "404": { description: Not found }
+
+  /api/evidence/{id}:
+    get:
+      tags: [Evidence]
+      summary: Streams the evidence photo, or 302-redirects to a presigned URL when using S3 storage
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Image bytes, content: { "image/*": { schema: { type: string, format: binary } } } }
+        "302": { description: Redirect to a presigned storage URL }
+        "403": { description: Not your evidence file }
+
+  /api/carbon/ecosystem-types:
+    get:
+      tags: [Carbon]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ecosystemTypes: { type: array, items: { $ref: "#/components/schemas/EcosystemType" } } }
+
+  /api/carbon/factors:
+    get:
+      tags: [Carbon]
+      summary: Sequestration-rate factors used by the carbon calculation - see docs/AI_PIPELINE.md
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { carbonFactors: { type: array, items: { $ref: "#/components/schemas/CarbonFactor" } } }
+
+  /api/mrv:
+    post:
+      tags: [MRV]
+      summary: Create a draft MRV record from an observation (field_operator, admin only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [observationId], properties: { observationId: { type: string, format: uuid } } }
+      responses:
+        "201":
+          description: Created, status=draft
+          content:
+            application/json:
+              schema: { type: object, properties: { mrvRecord: { type: object, properties: { id: { type: string }, mrv_code: { type: string } } } } }
+    get:
+      tags: [MRV]
+      summary: List MRV records (field_operator accounts only ever see their own)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/MrvStatus" } }
+        - { name: ecosystemCode, in: query, schema: { $ref: "#/components/schemas/EcosystemCode" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mrvRecords: { type: array, items: { $ref: "#/components/schemas/MrvRecordSummary" } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+
+  /api/mrv/{id}:
+    get:
+      tags: [MRV]
+      summary: Full record detail - observation, AI analysis, carbon breakdown, validation history, blockchain transactions
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { mrvRecord: { $ref: "#/components/schemas/MrvRecordDetail" } } }
+
+  /api/mrv/{id}/submit:
+    post:
+      tags: [MRV]
+      summary: draft -> submitted (field_operator owner or admin)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { status: { type: string, example: submitted } } } } } }
+        "409": { description: Not in draft status }
+
+  /api/mrv/{id}/analyze:
+    post:
+      tags: [MRV]
+      summary: submitted -> ai_analyzed. Calls the real AI/ML service (no fallback - 502 if unreachable)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ai_analyzed }
+                  analysisId: { type: string }
+                  analysis:
+                    type: object
+                    properties:
+                      modelName: { type: string }
+                      modelMode: { type: string, enum: [heuristic, pretrained], description: "Always 'heuristic' currently - see docs/AI_PIPELINE.md for why" }
+                      predictedEcosystem: { $ref: "#/components/schemas/EcosystemCode" }
+                      confidence: { type: number }
+                      vegetationCoveragePct: { type: number }
+                      inferenceMs: { type: integer }
+                      warnings: { type: array, items: { type: string } }
+        "502": { description: AI service unreachable or returned an error }
+
+  /api/mrv/{id}/calculate:
+    post:
+      tags: [MRV]
+      summary: ai_analyzed -> pending_validation. Runs duplicate detection as a side effect.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: pending_validation }
+                  breakdown: { $ref: "#/components/schemas/CarbonCalculationBreakdown" }
+                  duplicates: { type: array, items: { $ref: "#/components/schemas/DuplicateSignal" } }
+
+  /api/mrv/{id}/tokenize:
+    post:
+      tags: [MRV]
+      summary: verified -> tokenized (validator, admin only). Requires FABRIC_ENABLED=true.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, example: tokenized }, assetId: { type: string, example: BC-000042 }, txId: { type: string } }
+        "409": { description: Not verified, or already tokenized }
+        "503": { description: "FABRIC_ENABLED=false - a carbon token is inherently an on-chain asset, so this refuses rather than faking one off-chain" }
+
+  /api/validation/{mrvId}/approve:
+    post:
+      tags: [Validation]
+      summary: pending_validation -> verified (validator, admin only)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: mrvId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { reason: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { status: { type: string, example: verified } } } } } }
+
+  /api/validation/{mrvId}/reject:
+    post:
+      tags: [Validation]
+      summary: pending_validation -> rejected (validator, admin only)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: mrvId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [reason], properties: { reason: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { status: { type: string, example: rejected } } } } } }
+
+  /api/blockchain/stats:
+    get:
+      tags: [Blockchain]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { transactionCount: { type: integer }, tokenizedAssetCount: { type: integer } } }
+
+  /api/blockchain/transactions:
+    get:
+      tags: [Blockchain]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions: { type: array, items: { $ref: "#/components/schemas/BlockchainTransaction" } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+
+  /api/blockchain/transactions/{txId}:
+    get:
+      tags: [Blockchain]
+      summary: Look up by the Fabric transaction ID (not the internal row id)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: txId, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { transaction: { $ref: "#/components/schemas/BlockchainTransaction" } } }
+        "404": { description: Not found }
+
+  /api/assets/{assetId}:
+    get:
+      tags: [Assets]
+      summary: The tokenized carbon asset certificate (asset id, e.g. BC-000042 - not the row id)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: assetId, in: path, required: true, schema: { type: string, example: BC-000042 } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { asset: { $ref: "#/components/schemas/BlockchainAsset" } } }
+        "404": { description: Not found }
+
+  /api/analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Aggregate counts, ecosystem/confidence distributions, and recent activity for the dashboard
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: OK }
+
+  /api/audit:
+    get:
+      tags: [Audit]
+      summary: Immutable log of every state-changing action (validator, admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 25, maximum: 100 } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: actorId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
+                  actions: { type: array, items: { type: string }, description: Every distinct action value seen, for building a filter dropdown }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: VALIDATION_ERROR }
+            message: { type: string }
+            details: {}
+
+    HealthResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        timestamp: { type: string, format: date-time }
+        components:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status: { type: string, enum: [ok, error, disabled] }
+              detail: { type: string }
+
+    EcosystemCode:
+      type: string
+      enum: [mangrove, seagrass, salt_marsh]
+
+    MrvStatus:
+      type: string
+      enum: [draft, submitted, ai_analyzed, pending_validation, verified, tokenized, rejected]
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [field_operator, validator, admin] }
+        organizationId: { type: string, nullable: true }
+
+    AuthResponse:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        tokens:
+          type: object
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: string, example: 8h }
+
+    EcosystemType:
+      type: object
+      properties:
+        id: { type: string }
+        code: { $ref: "#/components/schemas/EcosystemCode" }
+        name: { type: string }
+        description: { type: string, nullable: true }
+
+    CarbonFactor:
+      type: object
+      properties:
+        id: { type: string }
+        ecosystem_code: { $ref: "#/components/schemas/EcosystemCode" }
+        ecosystem_name: { type: string }
+        factor_value: { type: string }
+        unit: { type: string, example: tCO2e/ha/yr }
+        source: { type: string }
+        effective_date: { type: string, format: date }
+        is_active: { type: boolean }
+
+    ObservationSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        captured_at: { type: string, format: date-time }
+        reported_area_m2: { type: string }
+        created_at: { type: string, format: date-time }
+        ecosystem_code: { $ref: "#/components/schemas/EcosystemCode" }
+        contributor_id: { type: string, format: uuid }
+        latitude: { type: number }
+        longitude: { type: number }
+
+    ObservationDetail:
+      allOf:
+        - $ref: "#/components/schemas/ObservationSummary"
+        - type: object
+          properties:
+            notes: { type: string, nullable: true }
+            ecosystem_name: { type: string }
+            contributor_name: { type: string }
+            evidence:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string }
+                  original_filename: { type: string, nullable: true }
+                  mime_type: { type: string }
+                  sha256_hash: { type: string }
+            mrvRecord:
+              nullable: true
+              type: object
+              properties: { id: { type: string }, mrv_code: { type: string }, status: { $ref: "#/components/schemas/MrvStatus" } }
+
+    MrvRecordSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        mrv_code: { type: string, example: MRV-000042 }
+        status: { $ref: "#/components/schemas/MrvStatus" }
+        estimated_carbon_tco2e: { type: string, nullable: true }
+        duplicate_of_mrv_id: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        ecosystem_code: { $ref: "#/components/schemas/EcosystemCode" }
+        contributor_id: { type: string, format: uuid }
+
+    CarbonCalculationBreakdown:
+      type: object
+      description: >
+        estimated_carbon_tco2e is an ANNUAL sequestration-rate estimate (the factor's "/yr"
+        unit), not a cumulative carbon stock - see the `formula` field, which spells out the
+        exact arithmetic used for this specific record.
+      properties:
+        ecosystem_code: { $ref: "#/components/schemas/EcosystemCode" }
+        vegetation_coverage_pct: { type: number }
+        reported_area_m2: { type: number }
+        effective_area_m2: { type: number }
+        carbon_factor_value: { type: number }
+        carbon_factor_unit: { type: string }
+        carbon_factor_source: { type: string }
+        formula: { type: string }
+        estimated_carbon_tco2e: { type: number }
+        calculated_at: { type: string, format: date-time }
+
+    DuplicateSignal:
+      type: object
+      properties:
+        type: { type: string, enum: [exact_evidence_hash, geo_time_proximity] }
+        matchedMrvId: { type: string }
+        matchedMrvCode: { type: string }
+        matchedObservationId: { type: string }
+        detail: { type: string }
+
+    MrvRecordDetail:
+      allOf:
+        - $ref: "#/components/schemas/MrvRecordSummary"
+        - type: object
+          properties:
+            estimated_area_m2: { type: string, nullable: true }
+            vegetation_coverage_pct: { type: string, nullable: true }
+            calculation_breakdown: { $ref: "#/components/schemas/CarbonCalculationBreakdown" }
+            duplicate_reason: { type: string, nullable: true }
+            rejection_reason: { type: string, nullable: true }
+            updated_at: { type: string, format: date-time }
+            observation: { $ref: "#/components/schemas/ObservationDetail" }
+            aiAnalysis:
+              nullable: true
+              type: object
+              properties:
+                model_name: { type: string }
+                model_mode: { type: string }
+                confidence: { type: string }
+                vegetation_coverage_pct: { type: string }
+                warnings: { type: array, items: { type: string } }
+            validationEvents:
+              type: array
+              items:
+                type: object
+                properties:
+                  action: { type: string, enum: [approve, reject, flag_duplicate, comment] }
+                  reason: { type: string, nullable: true }
+                  created_at: { type: string, format: date-time }
+                  validator_name: { type: string }
+            blockchainAsset:
+              nullable: true
+              allOf: [{ $ref: "#/components/schemas/BlockchainAsset" }]
+            blockchainTransactions:
+              type: array
+              items: { $ref: "#/components/schemas/BlockchainTransaction" }
+
+    BlockchainTransaction:
+      type: object
+      properties:
+        id: { type: string }
+        mrv_record_id: { type: string }
+        chaincode_function: { type: string, example: IssueCarbonToken }
+        fabric_tx_id: { type: string }
+        channel_name: { type: string }
+        chaincode_name: { type: string }
+        created_at: { type: string, format: date-time }
+
+    BlockchainAsset:
+      type: object
+      properties:
+        asset_id: { type: string, example: BC-000042 }
+        mrv_record_id: { type: string }
+        fabric_tx_id: { type: string }
+        evidence_hash: { type: string }
+        metadata_hash: { type: string }
+        block_number: { type: string, nullable: true }
+        ledger_status: { type: string, enum: [pending, committed, failed] }
+        committed_at: { type: string, format: date-time, nullable: true }
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id: { type: string }
+        action: { type: string, example: mrv.tokenize }
+        entity_type: { type: string, example: mrv_records }
+        entity_id: { type: string, nullable: true }
+        metadata: { type: object }
+        ip_address: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        actor_id: { type: string, nullable: true }
+        actor_name: { type: string, nullable: true, description: "null for system-initiated events" }
+        actor_role: { type: string, nullable: true }

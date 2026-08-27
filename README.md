@@ -146,7 +146,7 @@ once, then starts the backend API and web dashboard:
 | Service | URL |
 |---|---|
 | Web dashboard | http://localhost:3000 |
-| Backend API | http://localhost:4000 (health: `/api/system/health`) |
+| Backend API | http://localhost:4000 (health: `/api/system/health`, interactive docs: `/api/docs`) |
 | MinIO console | http://localhost:9003 |
 
 Create a field-operator account from the dashboard's register page. Validator/admin accounts
