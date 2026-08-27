@@ -122,18 +122,71 @@ each milestone (see commit history). Current status:
 | 9 | Hyperledger Fabric network | ✅ done |
 | 10 | Chaincode | ✅ done |
 | 11 | Backend ↔ Fabric integration | ✅ done |
-| 12 | Next.js dashboard | ⬜ planned |
+| 12 | Next.js dashboard | ✅ done |
 | 13 | Flutter mobile app | ⬜ planned |
 | 14 | Offline sync | ⬜ planned |
 | 15 | Testing | 🔄 ongoing per-phase |
-| 16 | Docker + CI/CD | ⬜ planned |
-| 17 | Documentation & polish | ⬜ planned |
+| 16 | Docker + CI/CD | ✅ done |
+| 17 | Documentation & polish | 🔄 ongoing |
 
 ## Getting started
 
-Full setup instructions land in [`docs/SETUP.md`](docs/SETUP.md) as each service becomes
-runnable. Requires Docker Desktop, Node.js 20+, Python 3.11+, and (for the mobile app) the
-Flutter SDK.
+### Quick start (Docker Compose)
+
+Requires Docker Desktop and a `.env` file (`cp .env.example .env` works as-is — the defaults
+are for local development, not production).
+
+```bash
+docker compose up -d --build
+```
+
+This builds and starts Postgres/PostGIS, MinIO, the AI/ML service, runs database migrations
+once, then starts the backend API and web dashboard:
+
+| Service | URL |
+|---|---|
+| Web dashboard | http://localhost:3000 |
+| Backend API | http://localhost:4000 (health: `/api/system/health`) |
+| MinIO console | http://localhost:9003 |
+
+Create a field-operator account from the dashboard's register page. Validator/admin accounts
+are never created through open sign-up (see `authService.registerUser`) — seed them by running
+the seed script from your host (it targets Postgres' published port, `localhost:5434` by
+default, so it works against the Dockerized database without needing anything inside the
+container):
+
+```bash
+npm install                               # once, at the repo root
+npm run seed --workspace=apps/backend
+```
+
+The Hyperledger Fabric network is **not** part of this compose file — it's a separate, heavier
+process using the official `fabric-samples` tooling. Without it, blockchain-dependent actions
+(tokenization) are honestly disabled rather than faked; the health check reports
+`"blockchain": {"status": "disabled"}`. See [`network/README.md`](network/README.md) to stand
+it up, then set `FABRIC_ENABLED=true` in `.env` and restart the backend.
+
+### Local development (no Docker for the app itself)
+
+Requires Node.js 20+, Python 3.11+, and Docker only for Postgres/MinIO.
+
+```bash
+cp .env.example .env          # edit if needed
+docker compose up -d postgres minio minio-init ml-service
+npm install
+npm run migrate:up --workspace=apps/backend
+npm run seed --workspace=apps/backend     # creates validator/admin dev accounts
+npm run dev:backend                       # apps/backend, port 4000
+npm run dev:web                           # apps/web, port 3000 (separate terminal)
+```
+
+### Running tests
+
+```bash
+npm test --workspace=apps/backend   # 31 tests; Fabric-dependent ones skip if FABRIC_ENABLED=false
+npm test --workspace=apps/web
+npm test --workspace=chaincode/mrv-contract
+```
 
 ## Limitations & honesty notes
 

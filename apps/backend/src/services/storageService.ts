@@ -76,18 +76,33 @@ class LocalStorageDriver implements StorageDriver {
 
 class S3StorageDriver implements StorageDriver {
   private readonly client: S3Client;
+  private readonly presignClient: S3Client;
   private readonly bucket: string;
 
   constructor() {
+    const credentials =
+      env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
+        ? { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY }
+        : undefined;
+
     this.client = new S3Client({
       region: env.S3_REGION,
       endpoint: env.S3_ENDPOINT,
       forcePathStyle: env.S3_FORCE_PATH_STYLE,
-      credentials:
-        env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
-          ? { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY }
-          : undefined,
+      credentials,
     });
+
+    // Signing is a local, offline computation (no request is sent to this endpoint) - it just
+    // has to name a host the browser can actually resolve. See S3_PUBLIC_ENDPOINT above.
+    this.presignClient = env.S3_PUBLIC_ENDPOINT
+      ? new S3Client({
+          region: env.S3_REGION,
+          endpoint: env.S3_PUBLIC_ENDPOINT,
+          forcePathStyle: env.S3_FORCE_PATH_STYLE,
+          credentials,
+        })
+      : this.client;
+
     this.bucket = env.S3_BUCKET;
   }
 
@@ -108,7 +123,7 @@ class S3StorageDriver implements StorageDriver {
 
   async getSignedUrl(key: string, expiresInSeconds = 900): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    return awsGetSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+    return awsGetSignedUrl(this.presignClient, command, { expiresIn: expiresInSeconds });
   }
 
   async isHealthy(): Promise<boolean> {

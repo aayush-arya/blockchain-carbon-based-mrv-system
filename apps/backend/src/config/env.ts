@@ -18,6 +18,11 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   STORAGE_LOCAL_PATH: z.string().default('./local-storage'),
   S3_ENDPOINT: z.string().optional(),
+  // Presigned evidence URLs are followed by the end user's browser, not the backend - in
+  // Docker Compose that's a different network than S3_ENDPOINT (the Docker-internal address
+  // the backend itself uses). Defaults to S3_ENDPOINT, which is correct whenever both sides
+  // can already reach storage the same way (e.g. a real single public S3/MinIO endpoint).
+  S3_PUBLIC_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().default('us-east-1'),
   S3_BUCKET: z.string().default('blue-carbon-evidence'),
   S3_ACCESS_KEY_ID: z.string().optional(),

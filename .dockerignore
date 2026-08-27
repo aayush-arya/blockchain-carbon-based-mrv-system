@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.next
+**/local-storage
+**/coverage
+network/fabric-samples
+.git
+.env
+apps/web/.env.local

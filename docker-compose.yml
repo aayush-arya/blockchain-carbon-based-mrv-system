@@ -66,6 +66,94 @@ services:
       echo 'MinIO bucket ready.'
       "
 
+  # One-shot: applies migrations, then exits. `backend` waits for this to succeed rather than
+  # migrating on every boot, so a crash-loop can't re-run migrations repeatedly.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: bcm-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mrv_user}:${POSTGRES_PASSWORD:-mrv_password}@postgres:5432/${POSTGRES_DB:-blue_carbon_mrv}
+    working_dir: /repo/apps/backend
+    command: ["npx", "node-pg-migrate", "--migrations-dir", "/repo/apps/backend/migrations", "up"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: bcm-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mrv_user}:${POSTGRES_PASSWORD:-mrv_password}@postgres:5432/${POSTGRES_DB:-blue_carbon_mrv}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-in-real-deployments}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
+      STORAGE_DRIVER: s3
+      # Internal address for the backend's own S3 calls (fast, stays on the compose network).
+      S3_ENDPOINT: http://minio:9000
+      # MinIO issues presigned evidence URLs that the user's *browser* has to follow (see
+      # storageService.ts's getSignedUrl -> evidence.ts's 302 redirect) - "minio" isn't
+      # resolvable there, only the host's published port is. Signing is a local, offline
+      # computation, so this doesn't need to be reachable from the backend itself.
+      S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_API_PORT:-9002}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-blue-carbon-evidence}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      S3_FORCE_PATH_STYLE: "true"
+      ML_SERVICE_URL: http://ml-service:8010
+      # Off by default: this compose file doesn't stand up the Fabric network (see
+      # network/README.md) - flip to true only once that's running separately and the
+      # FABRIC_* paths below point at its generated crypto material.
+      FABRIC_ENABLED: ${FABRIC_ENABLED:-false}
+      FABRIC_CHANNEL_NAME: ${FABRIC_CHANNEL_NAME:-mrvchannel}
+      FABRIC_CHAINCODE_NAME: ${FABRIC_CHAINCODE_NAME:-mrv-contract}
+      FABRIC_MSP_ID: ${FABRIC_MSP_ID:-Org1MSP}
+      FABRIC_PEER_ENDPOINT: ${FABRIC_PEER_ENDPOINT:-localhost:7051}
+      FABRIC_PEER_HOST_ALIAS: ${FABRIC_PEER_HOST_ALIAS:-peer0.org1.example.com}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/system/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+    container_name: bcm-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
   minio-data:

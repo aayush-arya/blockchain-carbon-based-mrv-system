@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
+import { env } from '../src/config/env';
 import { db, closeDatabaseConnection } from '../src/db/client';
 import { getTestImage, type TestImageKey } from './fixtures/testImages';
 
@@ -123,6 +124,21 @@ describe('MRV record lifecycle', () => {
     const tokenize = await request(app)
       .post(`/api/mrv/${mrvId}/tokenize`)
       .set('Authorization', `Bearer ${validator.accessToken}`);
+
+    if (!env.FABRIC_ENABLED) {
+      // A carbon token is inherently an on-chain asset - without a Fabric network there is
+      // nothing to issue, so this correctly refuses rather than faking a token off-chain.
+      expect(tokenize.status).toBe(503);
+      expect(tokenize.body.error.code).toBe('BLOCKCHAIN_DISABLED');
+
+      const detailWithoutChain = await request(app)
+        .get(`/api/mrv/${mrvId}`)
+        .set('Authorization', `Bearer ${operator.accessToken}`);
+      expect(detailWithoutChain.status).toBe(200);
+      expect(detailWithoutChain.body.mrvRecord.status).toBe('verified');
+      return;
+    }
+
     expect(tokenize.status).toBe(200);
     expect(tokenize.body.assetId).toMatch(/^BC-\d{6}$/);
     expect(tokenize.body.txId).toBeTruthy();

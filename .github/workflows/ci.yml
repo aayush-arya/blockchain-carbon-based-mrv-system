@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Start Postgres, MinIO, and the AI service
+        run: docker compose up -d --build --wait postgres minio minio-init ml-service
+
+      - run: cp .env.example .env
+
+      - run: npm run migrate:up --workspace=apps/backend
+      - run: npm run type-check --workspace=apps/backend
+      - run: npm run lint --workspace=apps/backend
+      - run: npm run build --workspace=apps/backend
+
+      - name: Test
+        run: npm test --workspace=apps/backend
+        env:
+          # No Fabric network in CI (see network/README.md - it's a separate, heavier setup).
+          # mrv.test.ts asserts the honestly-disabled 503 path instead of a real tokenize.
+          FABRIC_ENABLED: false
+
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check --workspace=apps/web
+      - run: npm run lint --workspace=apps/web
+      - run: npm test --workspace=apps/web
+      - run: npm run build --workspace=apps/web
+
+  chaincode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --workspace=chaincode/mrv-contract
+      - run: npm test --workspace=chaincode/mrv-contract
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+
+      - name: Build and start the full app stack
+        run: docker compose up -d --build --wait postgres minio minio-init ml-service migrate backend web
+
+      - name: Smoke test
+        run: |
+          curl -sf http://localhost:4000/api/system/health | grep -q '"status":"ok"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/)" = "200"
+
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose logs
