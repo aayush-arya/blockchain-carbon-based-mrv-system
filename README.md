@@ -62,7 +62,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full breakdown. High 
 ```
 Flutter mobile app  ──REST──▶  Node.js/Express API  ──▶  PostgreSQL + PostGIS
   (offline-first,                     │  │                 (spatial data)
-   SQLite queue)                      │  └──▶  S3-compatible object storage
+   Hive queue)                        │  └──▶  S3-compatible object storage
                                       │         (evidence images, hashed)
                                       ├──▶  Python AI/ML service
                                       │     (ecosystem classification +
@@ -80,7 +80,7 @@ Next.js dashboard  ──REST─────────────────
 
 | Layer | Technology |
 |---|---|
-| Mobile | Flutter, SQLite/Hive (offline queue) |
+| Mobile | Flutter, Hive (offline queue) |
 | Backend API | Node.js, Express, TypeScript |
 | Database | PostgreSQL + PostGIS |
 | Object storage | S3-compatible (MinIO locally, AWS S3 in production) |
@@ -123,8 +123,8 @@ each milestone (see commit history). Current status:
 | 10 | Chaincode | ✅ done |
 | 11 | Backend ↔ Fabric integration | ✅ done |
 | 12 | Next.js dashboard | ✅ done |
-| 13 | Flutter mobile app | ⬜ planned |
-| 14 | Offline sync | ⬜ planned |
+| 13 | Flutter mobile app | ✅ done |
+| 14 | Offline sync | ✅ done |
 | 15 | Testing | 🔄 ongoing per-phase |
 | 16 | Docker + CI/CD | ✅ done |
 | 17 | Documentation & polish | 🔄 ongoing |
@@ -180,12 +180,30 @@ npm run dev:backend                       # apps/backend, port 4000
 npm run dev:web                           # apps/web, port 3000 (separate terminal)
 ```
 
+### Mobile app (field observation capture)
+
+Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) and the backend
+running (see above - `apps/mobile/lib/config/api_config.dart` points at `localhost:4000`,
+which the dev backend accepts requests from regardless of which local port you run on).
+
+```bash
+cd apps/mobile
+flutter pub get
+flutter run -d chrome    # or -d windows (needs Developer Mode enabled for plugin builds)
+```
+
+The app is intentionally scoped to what a field operator needs - capture, offline queue, submit
+- not the full dashboard (that's the web app's job). Every observation is written to a local
+Hive-backed queue first and uploaded automatically once the device is online, so capture never
+blocks on connectivity.
+
 ### Running tests
 
 ```bash
-npm test --workspace=apps/backend   # 31 tests; Fabric-dependent ones skip if FABRIC_ENABLED=false
+npm test --workspace=apps/backend    # 31 tests; Fabric-dependent ones skip if FABRIC_ENABLED=false
 npm test --workspace=apps/web
 npm test --workspace=chaincode/mrv-contract
+cd apps/mobile && flutter test       # includes integration tests that hit the real backend
 ```
 
 ## Limitations & honesty notes

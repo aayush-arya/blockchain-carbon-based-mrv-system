@@ -63,6 +63,33 @@ jobs:
       - run: npm run lint --workspace=chaincode/mrv-contract
       - run: npm test --workspace=chaincode/mrv-contract
 
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: cp .env.example .env
+
+      - name: Start the backend and everything it needs
+        run: docker compose up -d --build --wait postgres minio minio-init ml-service migrate backend
+        env:
+          FABRIC_ENABLED: false
+
+      - working-directory: apps/mobile
+        run: flutter pub get
+      - working-directory: apps/mobile
+        run: flutter analyze
+      - name: Test (including integration tests against the backend just started above)
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Compose logs on failure
+        if: failure()
+        run: docker compose logs
+
   docker-build:
     runs-on: ubuntu-latest
     needs: [backend, web]

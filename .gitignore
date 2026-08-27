@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# Claude Code session-local runtime state (not project config)
+.claude/scheduled_tasks.lock
+
 # Environment
 .env
 .env.local
