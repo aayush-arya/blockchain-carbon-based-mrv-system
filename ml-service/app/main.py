@@ -1,14 +1,27 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import UnidentifiedImageError
 
 from .config import settings
 from .schemas import AnalyzeResponse, HealthResponse
-from .services.inference import HEURISTIC_MODEL_NAME, analyze_image
+from .services.inference import HEURISTIC_MODEL_NAME, PRETRAINED_MODEL_NAME, analyze_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ml-service")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if settings.model_mode == "pretrained":
+        from .services.pretrained_classifier import warm_up
+
+        logger.info("Loading CLIP checkpoint (one-time per process start)...")
+        warm_up()
+        logger.info("CLIP checkpoint loaded.")
+    yield
+
 
 app = FastAPI(
     title="Blue Carbon MRV - AI/ML Service",
@@ -17,6 +30,7 @@ app = FastAPI(
         "See docs/AI_PIPELINE.md in the repo root for the model's methodology and limitations."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
@@ -25,7 +39,8 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", 
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", model_mode=settings.model_mode, model_name=HEURISTIC_MODEL_NAME)
+    model_name = PRETRAINED_MODEL_NAME if settings.model_mode == "pretrained" else HEURISTIC_MODEL_NAME
+    return HealthResponse(status="ok", model_mode=settings.model_mode, model_name=model_name)
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)

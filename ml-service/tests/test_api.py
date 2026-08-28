@@ -3,6 +3,7 @@ import io
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from app.config import settings
 from app.main import app
 
 client = TestClient(app)
@@ -20,7 +21,9 @@ def test_health_endpoint():
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "ok"
-    assert body["model_mode"] == "heuristic"
+    # Whichever mode this process is actually configured for (ML_MODEL_MODE) - both are real,
+    # exercised paths (see test_analyze_returns_a_well_formed_response below), not just one.
+    assert body["model_mode"] == settings.model_mode
 
 
 def test_analyze_returns_a_well_formed_response():
@@ -30,12 +33,18 @@ def test_analyze_returns_a_well_formed_response():
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["model_mode"] == "heuristic"
+    assert body["model_mode"] == settings.model_mode
     assert body["predicted_ecosystem"] in ("mangrove", "seagrass", "salt_marsh")
     assert 0 <= body["confidence"] <= 1
     assert 0 <= body["vegetation_coverage_pct"] <= 100
     assert len(body["warnings"]) >= 1
     assert "explanation" in body
+    if settings.model_mode == "heuristic":
+        # Only the heuristic path reports its raw feature vector - pretrained mode's
+        # explanation carries ecosystem_scores but no equivalent per-feature breakdown.
+        assert set(body["explanation"]["features"].keys()) == {
+            "blueness", "greenness", "texture", "brightness", "saturation",
+        }
 
 
 def test_analyze_rejects_unsupported_content_type():

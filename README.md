@@ -84,7 +84,7 @@ Next.js dashboard  ──REST─────────────────
 | Backend API | Node.js, Express, TypeScript |
 | Database | PostgreSQL + PostGIS |
 | Object storage | S3-compatible (MinIO locally, AWS S3 in production) |
-| AI/ML | Python, FastAPI, TensorFlow/scikit-image |
+| AI/ML | Python, FastAPI, PyTorch + Transformers (CLIP zero-shot), NumPy/Pillow |
 | Blockchain | Hyperledger Fabric (chaincode in Node.js) |
 | Web dashboard | Next.js, TypeScript, Tailwind CSS |
 | Infra | Docker Compose, GitHub Actions |

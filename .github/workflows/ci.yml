@@ -16,10 +16,14 @@ jobs:
           cache: npm
       - run: npm ci
 
+      - run: cp .env.example .env
+
       - name: Start Postgres, MinIO, and the AI service
         run: docker compose up -d --build --wait postgres minio minio-init ml-service
-
-      - run: cp .env.example .env
+        env:
+          # heuristic here, not the pretrained default - CI verifies the pipeline works, not
+          # prediction quality, and heuristic mode needs no ~600MB checkpoint download.
+          ML_MODEL_MODE: heuristic
 
       - run: npm run migrate:up --workspace=apps/backend
       - run: npm run type-check --workspace=apps/backend
@@ -63,6 +67,24 @@ jobs:
       - run: npm run lint --workspace=chaincode/mrv-contract
       - run: npm test --workspace=chaincode/mrv-contract
 
+  ml-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - working-directory: ml-service
+        run: pip install -r requirements.txt
+      - working-directory: ml-service
+        # heuristic here: fast, no ~600MB checkpoint download. pretrained mode's own path is
+        # covered by test_pretrained_classifier.py running locally / in the docker-build job's
+        # image build (which bakes and therefore exercises loading the real checkpoint) rather
+        # than a second full pytest run here.
+        run: pytest tests/ -v
+        env:
+          ML_MODEL_MODE: heuristic
+
   mobile:
     runs-on: ubuntu-latest
     steps:
@@ -77,6 +99,7 @@ jobs:
         run: docker compose up -d --build --wait postgres minio minio-init ml-service migrate backend
         env:
           FABRIC_ENABLED: false
+          ML_MODEL_MODE: heuristic
 
       - working-directory: apps/mobile
         run: flutter pub get
@@ -99,6 +122,8 @@ jobs:
 
       - name: Build and start the full app stack
         run: docker compose up -d --build --wait postgres minio minio-init ml-service migrate backend web
+        env:
+          ML_MODEL_MODE: heuristic
 
       - name: Smoke test
         run: |

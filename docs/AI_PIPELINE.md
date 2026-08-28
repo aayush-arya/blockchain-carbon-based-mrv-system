@@ -3,11 +3,10 @@
 ## What this is, honestly
 
 There is no labeled dataset of mangrove/seagrass/salt-marsh field photos available in this
-environment, and no claim is made that a model was trained on one. `ml-service` runs a
-**heuristic development model** (`model_mode: "heuristic"` in every response) built from two
-real, deterministic, explainable computer-vision techniques — not a fabricated or hardcoded
-result. Every response is labeled with its `model_mode` and carries a `warnings` array stating
-these limitations, so the web/mobile UI can surface them rather than presenting a bare number.
+environment, and no claim is made that a model was trained on one. `ml-service` supports two
+classification modes (`ML_MODEL_MODE`, default `pretrained`) - neither is fine-tuned on labeled
+blue-carbon imagery, and both are honest about it in every response's `warnings` array, but they
+are not equally informative, which is worth being precise about (see below).
 
 Section 2 of the project synopsis is explicit that a trained CNN (as used in the cited
 literature — Wei et al. for mangrove mapping, Langlois et al. for seagrass detection) is the
@@ -39,40 +38,68 @@ a light tan color scores ambiguously, while a proper brown soil tone scores corr
 production system would validate against a labeled test set and likely combine ExG with
 additional indices or a trained segmentation model.
 
-### 2. Ecosystem classification — nearest-prototype heuristic
+### 2. Ecosystem classification — two modes, chosen by `ML_MODEL_MODE`
 
-`app/services/heuristic_classifier.py` extracts five features from the image (blueness,
-greenness, texture/std-dev, brightness, saturation) and scores it against three
+**`heuristic`** (`app/services/heuristic_classifier.py`) extracts five features from the image
+(blueness, greenness, texture/std-dev, brightness, saturation) and scores it against three
 **hand-authored** reference feature vectors — one per ecosystem, documented inline with the
 visual reasoning behind each (e.g. seagrass photos are usually underwater and blue-shifted;
-mangrove canopy is more textured than open marsh grass). Scoring is negative Euclidean
-distance to each prototype, softmax-normalized into probabilities that sum to 1. Confidence is
-the winning class's own probability — genuinely computed from how separated it is from the
-other two, not a fixed or randomly-varied number.
+mangrove canopy is more textured than open marsh grass). Scoring is negative Euclidean distance
+to each prototype, softmax-normalized into probabilities that sum to 1.
 
-This is explicitly **not** a trained classifier. The prototypes are reasoned assumptions about
-typical appearance, not statistics measured from real labeled photos. Treat its output as a
-rough prior a human validator should weigh, not a determination.
+This is explicitly **not** a trained classifier, and it has a provable, structural limit worth
+stating plainly: the three hand-guessed prototypes sit close enough together in feature space
+that **no input can ever score above ~43% confidence** (computed directly by minimizing the
+softmax over the prototype vectors themselves, not measured from a sample of images - see the
+git history for the derivation). A correct prediction and a wrong one can carry near-identical
+confidence, which is a real usability problem: nothing about the number tells a validator
+whether to trust it.
+
+**`pretrained`** (`app/services/pretrained_classifier.py`, the default) uses zero-shot
+classification via CLIP (`openai/clip-vit-base-patch32`, Radford et al. 2021) — a real model
+pretrained on ~400M real image-text pairs, compared against short text descriptions of each
+ecosystem rather than three guessed numbers. It is still not fine-tuned on labeled blue-carbon
+imagery (that dataset doesn't exist here), so it is not a determination either - but "not
+fine-tuned on domain data" is not the same claim as "equally uninformative," and testing this
+against a real, verifiably-labeled mangrove-forest photo (Sundarbans, CC BY-SA 4.0, Pinakpani
+via Wikimedia Commons) produced 98.7% confidence for the correct class, against the heuristic's
+~43% ceiling for any input whatsoever. Both modes carry an honest `warnings` entry; only one of
+them gives a validator a confidence number actually worth reading.
+
+Both modes have a real, opposite-direction failure mode worth knowing: the heuristic can be
+fooled by hand-tuning an image's color/texture statistics without it looking like anything real
+(verified directly - an image engineered to match the mangrove prototype scored CLIP's classes
+57%/29%/13%, correctly unconvinced, since it doesn't look like a real photograph of anything).
+CLIP, conversely, judges the *scene* holistically and can be confidently right about ecosystem
+type from a wide landscape shot that is mostly sky and water - useful for classification, but a
+reminder that classification confidence says nothing about whether *this specific frame* is a
+good input for the coverage estimate below, which only looks at pixels.
 
 ## API contract
 
 `POST /analyze` (multipart, field name `image`) → see `app/schemas.py` for the full response
 shape. Every response includes `model_name`, `model_mode`, `confidence`, `vegetation_coverage_pct`,
-`inference_ms`, a `warnings` array, and an `explanation` object with the per-ecosystem scores
-and extracted features, so a caller can render an "how was this calculated" panel rather than
-just a bare prediction.
+`inference_ms`, a `warnings` array, and an `explanation` object with the per-ecosystem scores, so
+a caller can render a "how was this calculated" panel rather than just a bare prediction.
+`explanation.features` is populated only in `heuristic` mode (its raw blueness/greenness/texture/
+brightness/saturation vector) - `pretrained` mode has no equivalent per-feature breakdown to
+show, so it's an empty object there, not fabricated numbers.
 
-## Why there's no `pretrained` mode yet
+## On the earlier decision to skip `pretrained` mode
 
-`ML_MODEL_MODE` supports `"pretrained"` as a documented future option. PyTorch does install
-cleanly on this environment's Python 3.14 (confirmed), but a pretrained *general* ImageNet
-backbone doesn't actually solve this task more honestly than the heuristic above — mapping
-1000 ImageNet classes onto "mangrove/seagrass/salt-marsh," or running zero-shot CLIP-style
-classification, still isn't a model that has seen labeled blue-carbon imagery. It would add a
-real dependency and a large download for a result that carries the same fundamental caveat.
-The honest path to a real `pretrained` mode is fine-tuning on a labeled dataset, per the
-synopsis's own literature review and future-scope section — not swapping in a differently-caveated
-guess.
+This doc previously argued against implementing `pretrained` mode at all, on the reasoning that
+zero-shot CLIP "still isn't a model that has seen labeled blue-carbon imagery" and would just
+be "a differently-caveated guess" - true as far as it went, but it undersold the actual
+difference in kind between a 400M-pair-trained embedding space and three hand-guessed numbers.
+Both are honestly not fine-tuned on domain data; they are not equally uninformative, and the
+heuristic's provable ~43% confidence ceiling (discovered by directly testing it, not by
+assumption) is a real usability problem the earlier reasoning hadn't actually measured. Recorded
+here rather than silently rewritten, since the correction itself - "verify before asserting
+a limitation is fundamental" - is the more durable lesson.
+
+The honest path to something *better than either current mode* is still fine-tuning on a
+labeled dataset, per the synopsis's own literature review and future-scope section. `pretrained`
+mode is a real improvement over the heuristic, not a substitute for that.
 
 ## Backend integration
 

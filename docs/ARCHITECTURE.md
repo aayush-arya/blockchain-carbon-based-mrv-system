@@ -84,7 +84,7 @@ The AI service explicitly separates three different claims that are easy to conf
 
 The system never presents (2) as if it were a physical area measurement, and every AI result
 carries `model_mode` so the UI can show whether a result came from a heuristic or a trained
-model. See `ml-service/README.md` for the current mode and its limitations.
+model. See [`docs/AI_PIPELINE.md`](AI_PIPELINE.md) for both modes and their limitations.
 
 ## Security model summary
 
