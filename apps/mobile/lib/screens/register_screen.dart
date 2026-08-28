@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/auth_provider.dart';
+import '../theme.dart';
+import '../widgets/brand_mark.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -64,10 +66,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const BrandMark(),
+                    const SizedBox(height: 16),
                     Text(
                       'Field operator accounts submit observations. Validator and admin '
                       'accounts are provisioned separately.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.inkFaint),
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
@@ -91,7 +95,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         helperText: 'At least 8 characters, one letter and one number.',
                       ),
                       validator: (v) {
+                        // Mirrors apps/backend's registerSchema exactly (authSchemas.ts) so a
+                        // password that passes here never gets rejected by the server.
                         if (v == null || v.length < 8) return 'At least 8 characters';
+                        if (!RegExp(r'[A-Za-z]').hasMatch(v)) return 'Must contain at least one letter';
+                        if (!RegExp(r'[0-9]').hasMatch(v)) return 'Must contain at least one number';
                         return null;
                       },
                       onFieldSubmitted: (_) => _submit(),

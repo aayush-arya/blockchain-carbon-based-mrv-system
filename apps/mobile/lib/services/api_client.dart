@@ -151,9 +151,29 @@ class ApiClient {
       throw ApiException(
         response.statusCode,
         error?['code'] as String? ?? 'UNKNOWN',
-        error?['message'] as String? ?? 'Request failed',
+        _errorMessage(error) ?? 'Request failed',
       );
     }
     return decoded as Map<String, dynamic>;
+  }
+
+  /// The generic "Request validation failed" (zod's top-level message, see errorHandler.ts) is
+  /// not actionable on its own - when the server sent field-level detail (err.flatten() shape:
+  /// {fieldErrors: {field: [messages]}}), surface that instead. This is defense-in-depth: it
+  /// should rarely fire since client-side form validation is meant to mirror the server's rules,
+  /// but if the two ever drift, the user sees why rather than a dead-end generic message.
+  String? _errorMessage(Map<String, dynamic>? error) {
+    if (error == null) return null;
+    final details = error['details'] as Map<String, dynamic>?;
+    final fieldErrors = details?['fieldErrors'] as Map<String, dynamic>?;
+    if (fieldErrors != null && fieldErrors.isNotEmpty) {
+      final messages = fieldErrors.values
+          .whereType<List>()
+          .expand((list) => list)
+          .map((m) => m.toString())
+          .toList();
+      if (messages.isNotEmpty) return messages.join(' ');
+    }
+    return error['message'] as String?;
   }
 }

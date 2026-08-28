@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 import '../models/ecosystem.dart';
 import '../models/queued_observation.dart';
 import '../state/sync_provider.dart';
+import '../theme.dart';
+import '../widgets/app_shell.dart';
 
 class NewObservationScreen extends StatefulWidget {
   const NewObservationScreen({super.key});
@@ -120,12 +122,14 @@ class _NewObservationScreenState extends State<NewObservationScreen> {
       appBar: AppBar(title: const Text('New Observation')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: AppShell(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 _PhotoPicker(
                   imageBytes: _imageBytes,
                   onCamera: () => _pickImage(ImageSource.camera),
@@ -220,9 +224,11 @@ class _NewObservationScreenState extends State<NewObservationScreen> {
                 Text(
                   'Saved to this device immediately and uploaded automatically - even offline.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.inkFaint),
                 ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -247,15 +253,15 @@ class _PhotoPicker extends StatelessWidget {
           aspectRatio: 4 / 3,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F4),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE7E5E4)),
+              color: AppColors.surfaceSunken,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
             ),
             clipBehavior: Clip.antiAlias,
             child: imageBytes != null
                 ? Image.memory(imageBytes!, fit: BoxFit.cover)
                 : const Center(
-                    child: Icon(Icons.landscape_outlined, size: 48, color: Color(0xFFA8A29E)),
+                    child: Icon(Icons.landscape_outlined, size: 48, color: AppColors.inkFaint),
                   ),
           ),
         ),

@@ -22,8 +22,17 @@ export function MapView({ observations }: { observations: ObservationSummary[] }
   return (
     <MapContainer center={center} zoom={observations.length > 0 ? 6 : 4} className="h-full w-full" scrollWheelZoom>
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        // Esri's World Street Map (env-overridable) rather than the stock OSM style - stock
+        // OSM renders each region's local-language place names, which reads as broken for an
+        // audience expecting English throughout. Two earlier picks didn't hold up: CARTO's
+        // rastertiles turned out to need an API key, and Wikimedia's "osm-intl" still mixes in
+        // local script for country/city names despite the name. Esri's global basemap is
+        // designed for English-only labeling and needs no key.
+        attribution='Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, FAO, NOAA, USGS'
+        url={
+          process.env.NEXT_PUBLIC_MAP_TILE_URL ||
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+        }
       />
       {observations.map((obs) => (
         <CircleMarker

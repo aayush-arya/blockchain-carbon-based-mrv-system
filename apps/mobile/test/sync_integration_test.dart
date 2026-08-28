@@ -64,6 +64,41 @@ void main() {
     expect(fetched!.id, user.id);
   });
 
+  test('register, then log in with the same credentials in a fresh session', () async {
+    // First "session": register the account, exactly as the app's register screen does.
+    final registerTokens = TokenStorage(InMemoryKeyValueStore());
+    final registerApi = ApiClient(registerTokens);
+    final registerAuth = AuthService(registerApi, registerTokens);
+
+    final email = 'mobile-login-${DateTime.now().millisecondsSinceEpoch}@example.test';
+    const password = 'correct-horse-1';
+    final registered = await registerAuth.register(email, password, 'Mobile Login Test');
+
+    // A brand new TokenStorage/ApiClient/AuthService, sharing nothing with the one above -
+    // this is what a real fresh app launch (or a different device) looks like, so login has to
+    // work purely from the email/password, not from any leftover in-memory state.
+    final loginTokens = TokenStorage(InMemoryKeyValueStore());
+    final loginApi = ApiClient(loginTokens);
+    final loginAuth = AuthService(loginApi, loginTokens);
+
+    final loggedIn = await loginAuth.login(email, password);
+    expect(loggedIn.id, registered.id);
+    expect(loggedIn.email, email);
+
+    // And the token login() stored actually works for a subsequent authenticated call -
+    // not just that the login response looked right.
+    final fetched = await loginAuth.currentUser();
+    expect(fetched, isNotNull);
+    expect(fetched!.id, registered.id);
+
+    // Wrong password on a real, existing account is correctly rejected, not silently accepted.
+    final wrongPasswordAuth = AuthService(ApiClient(TokenStorage(InMemoryKeyValueStore())), TokenStorage(InMemoryKeyValueStore()));
+    await expectLater(
+      wrongPasswordAuth.login(email, 'not-the-right-password'),
+      throwsA(isA<ApiException>().having((e) => e.status, 'status', 401)),
+    );
+  });
+
   test('queueing an observation offline and syncing produces a real MRV record', () async {
     final tokens = TokenStorage(InMemoryKeyValueStore());
     final api = ApiClient(tokens);

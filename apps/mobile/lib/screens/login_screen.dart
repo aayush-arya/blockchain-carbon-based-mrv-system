@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/auth_provider.dart';
+import '../theme.dart';
+import '../widgets/brand_mark.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -54,11 +56,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const BrandMark(),
+                    const SizedBox(height: 16),
                     Text('Blue Carbon Registry', style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 4),
                     Text(
                       'Sign in to submit field observations.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.inkFaint),
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
