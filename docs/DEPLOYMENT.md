@@ -31,16 +31,31 @@ to give the backend the web app's URL for CORS.
    DATABASE_URL="<paste-your-supabase-url>" npm run seed --workspace=apps/backend
    ```
 
-## 2. Evidence storage — Cloudflare R2
+## 2. Evidence storage — Supabase Storage (or Cloudflare R2)
 
-1. [dash.cloudflare.com](https://dash.cloudflare.com) → **R2** → Create bucket. Name it
-   something like `blue-carbon-evidence`.
-2. **R2 → Manage API tokens** → Create API token → permissions: Object Read & Write, scoped to
-   this bucket. Save the **Access Key ID** and **Secret Access Key** - the secret is shown once.
-3. Your account-specific S3 endpoint is shown on the R2 overview page:
-   `https://<account_id>.r2.cloudflarestorage.com`.
-4. You now have everything for the backend's `S3_*` variables: endpoint, bucket name, access
-   key, secret key. Region is the literal string `auto`.
+The backend talks to any S3-compatible provider unchanged - `apps/backend/src/services/storageService.ts`
+is a generic `@aws-sdk/client-s3` client with no provider-specific code. Supabase Storage is the
+simplest choice since it's already part of the project you made in step 1 - no separate account,
+no card.
+
+**Supabase Storage:**
+
+1. In your Supabase project - **Storage → Files → New bucket**. Name it `blue-carbon-evidence`,
+   leave it private (the app reads evidence through authenticated presigned URLs, not public
+   bucket access).
+2. **Storage → S3** (left sidebar, under "Configuration") - note the **Endpoint** and **Region**
+   shown there (region matches your project's own region, e.g. `ap-northeast-1`).
+3. **Access keys → New access key** - save the **Access Key ID** and **Secret access key**; the
+   secret is shown once.
+4. That's everything for the backend's `S3_*` variables: endpoint, region, bucket name, access
+   key, secret key.
+
+**Alternative - Cloudflare R2** (if you'd rather keep evidence storage on a separate provider):
+[dash.cloudflare.com](https://dash.cloudflare.com) → **R2** → Create bucket → **Manage API
+tokens** → Create API token (Object Read & Write, scoped to the bucket). Endpoint is
+`https://<account_id>.r2.cloudflarestorage.com`; region is the literal string `auto`. Note: R2 has
+historically asked for a card on file to activate, even though its free tier itself doesn't charge
+unless you exceed it - Supabase Storage sidesteps that entirely.
 
 ## 3. Backend + AI service — Render
 
@@ -51,7 +66,8 @@ The repo's `render.yaml` (Blueprint) deploys both at once.
    `blue-carbon-ai`.
 2. Before clicking Apply, fill in the fields marked `sync: false` for `blue-carbon-backend`:
    - `DATABASE_URL` - from Supabase step 1.2
-   - `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` - from R2 step 2
+   - `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` - from
+     step 2 (whichever provider you used)
    - `ML_SERVICE_URL` and `CORS_ORIGIN` - leave blank for now, come back after steps 3 and 4
 3. Apply. Both services build from their Dockerfiles - the AI service's build is the slower one
    (installs PyTorch/Transformers even in heuristic mode, since the image is shared code; it
