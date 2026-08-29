@@ -1,0 +1,95 @@
+# Render Blueprint - deploys the backend API and the AI/ML service together.
+# In the Render dashboard: New -> Blueprint -> select this repo. Render reads this file and
+# proposes both services at once. Fields marked `sync: false` are ones you fill in yourself
+# after creating the services (external credentials, or values that depend on a URL Render
+# only assigns once the *other* service exists) - see docs/DEPLOYMENT.md for exactly what
+# goes in each one and where to get it.
+#
+# Deliberately NOT included: the database (use Supabase - Render's own free Postgres expires
+# after 30 days) and Hyperledger Fabric (doesn't fit a single-container free-tier host - see
+# docs/DEPLOYMENT.md for why, and run it locally for that part of a demo instead).
+
+services:
+  - type: web
+    name: blue-carbon-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/system/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+
+      # Supabase connection string (Settings -> Database -> Connection string -> URI).
+      - key: DATABASE_URL
+        sync: false
+
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 30d
+      - key: BCRYPT_SALT_ROUNDS
+        value: "12"
+
+      - key: STORAGE_DRIVER
+        value: s3
+      # Cloudflare R2: https://<account_id>.r2.cloudflarestorage.com
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
+
+      # The blue-carbon-ai service's URL, assigned once it's deployed below - copy it in after
+      # (Render dashboard -> blue-carbon-ai -> the https://...onrender.com URL at the top).
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: ML_SERVICE_TIMEOUT_MS
+        value: "30000"
+
+      - key: DUPLICATE_PROXIMITY_METERS
+        value: "50"
+      - key: DUPLICATE_TIME_WINDOW_HOURS
+        value: "48"
+
+      # Off - see docs/DEPLOYMENT.md for why Fabric stays local rather than deployed here.
+      - key: FABRIC_ENABLED
+        value: "false"
+
+      # Your Vercel URL once you have it, e.g. https://blue-carbon-mrv.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "300"
+
+  - type: web
+    name: blue-carbon-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ml-service/Dockerfile
+    dockerContext: ./ml-service
+    healthCheckPath: /health
+    envVars:
+      # heuristic here, not the pretrained default - CLIP's RAM/image-size needs push past a
+      # free-tier instance. Use pretrained locally (already the default in .env) for demos and
+      # the video walkthrough; heuristic is still a real, honestly-labeled classifier, just the
+      # lighter one - see docs/AI_PIPELINE.md.
+      - key: ML_MODEL_MODE
+        value: heuristic
+      - key: ML_SERVICE_PORT
+        value: "8010"

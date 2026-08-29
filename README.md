@@ -206,6 +206,12 @@ npm test --workspace=chaincode/mrv-contract
 cd apps/mobile && flutter test       # includes integration tests that hit the real backend
 ```
 
+### Deploying it publicly
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) - a free-tier deployment (Vercel + Render +
+Supabase + Cloudflare R2) with Hyperledger Fabric deliberately left running locally rather than
+hosted (that doc explains why).
+
 ## Limitations & honesty notes
 
 - **Not a certified carbon registry.** Token/asset issuance is a prototype digital
