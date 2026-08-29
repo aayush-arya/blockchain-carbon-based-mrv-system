@@ -13,10 +13,27 @@ Dronacharya College of Engineering.
 > a legally certified carbon credit. AI outputs are decision-support, not a replacement for
 > expert ecological survey or independent verification. See [Limitations](#limitations--honesty-notes).
 
+## Live demo
+
+- **Web app:** [blockchain-carbon-based-mrv-system.vercel.app](https://blockchain-carbon-based-mrv-system.vercel.app/)
+  — use the **Continue as Validator** / **Continue as Admin** buttons on the login page to explore
+  those roles without creating an account, or register as a field operator to try the full
+  observation → AI analysis → validation flow.
+- **Backend API:** [blue-carbon-backend-tvtf.onrender.com](https://blue-carbon-backend-tvtf.onrender.com/api/system/health) (health check) ·
+  [interactive API docs](https://blue-carbon-backend-tvtf.onrender.com/api/docs)
+- **AI/ML service:** [blue-carbon-ai.onrender.com](https://blue-carbon-ai.onrender.com/health)
+
+Hosted on free tiers (Vercel + Render + Supabase) - the backend and AI service spin down after
+~15 minutes idle, so the first request after a while can take up to ~50 seconds to wake up; a
+reload after that is fast. Hyperledger Fabric runs locally only, not in this hosted deployment -
+see [Why Fabric stays local](docs/DEPLOYMENT.md#why-fabric-stays-local) for why, and
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how this deployment itself was put together.
+
 ---
 
 ## Table of contents
 
+- [Live demo](#live-demo)
 - [Why this exists](#why-this-exists)
 - [Data lineage](#data-lineage)
 - [Architecture](#architecture)
