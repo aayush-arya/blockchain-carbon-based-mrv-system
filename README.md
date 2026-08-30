@@ -29,11 +29,34 @@ reload after that is fast. Hyperledger Fabric runs locally only, not in this hos
 see [Why Fabric stays local](docs/DEPLOYMENT.md#why-fabric-stays-local) for why, and
 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how this deployment itself was put together.
 
+## Blockchain in action (local demo)
+
+The hosted deployment above runs with `FABRIC_ENABLED=false`, so it won't show any chaincode
+activity on its own (see [Why Fabric stays local](docs/DEPLOYMENT.md#why-fabric-stays-local)).
+This is what it looks like running for real, locally, against an actual permissioned Hyperledger
+Fabric network - a validator approving a submitted record and issuing a carbon asset, each step
+writing a real transaction to the ledger:
+
+<video src="https://github.com/user-attachments/assets/c1e9fd30-a9f5-4f17-9364-fc2ce86fbaef" controls width="100%"></video>
+
+A transaction from that same run (`MRV-000055` → asset `BC-000055`), exactly as the Blockchain
+Explorer page displays it (hashes truncated for the UI, not fabricated for this readme):
+
+```
+CreateMRVRecord    caff2f52...287cdd
+ValidateMRVRecord  b69e0c8a...4f7319
+IssueCarbonToken   46904a0f...27e7aa   (ledger status: committed)
+```
+
+To run this yourself: [`network/README.md`](network/README.md) brings up the same two-org Fabric
+test network (orderer, two peers, two CouchDB instances, `mrv-contract` chaincode) locally.
+
 ---
 
 ## Table of contents
 
 - [Live demo](#live-demo)
+- [Blockchain in action (local demo)](#blockchain-in-action-local-demo)
 - [Why this exists](#why-this-exists)
 - [Data lineage](#data-lineage)
 - [Architecture](#architecture)
