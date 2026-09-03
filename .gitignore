@@ -80,3 +80,10 @@ Thumbs.db
 *.pem
 *.key
 !infra/**/*.example.*
+
+# Ad-hoc demo photos/recordings dropped at the repo root while testing - not project source.
+# Root-only (leading slash) so it doesn't catch real image assets organized in subdirectories.
+/*.mp4
+/*.jpg
+/*.jpeg
+/*.png
