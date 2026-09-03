@@ -1,0 +1,27 @@
+name: Keep hosted demo warm
+
+# Render's free tier spins a service down after ~15 minutes idle, and the next request then
+# pays a cold-start cost of anywhere from ~50s to several minutes - unacceptable for a link a
+# recruiter clicks once. Pinging both hosted services well inside that 15-minute window keeps
+# them continuously warm, so cold starts should no longer happen in practice. This does not
+# fix "free tier has a sleep policy" (nothing on our side can) - it makes that policy never
+# actually trigger.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          curl -sS -m 120 -o /dev/null -w "backend: %{http_code} in %{time_total}s\n" \
+            https://blue-carbon-backend-tvtf.onrender.com/api/system/health || true
+
+      - name: Ping AI service health endpoint
+        run: |
+          curl -sS -m 120 -o /dev/null -w "ai-service: %{http_code} in %{time_total}s\n" \
+            https://blue-carbon-ai.onrender.com/health || true

@@ -23,9 +23,11 @@ Dronacharya College of Engineering.
   [interactive API docs](https://blue-carbon-backend-tvtf.onrender.com/api/docs)
 - **AI/ML service:** [blue-carbon-ai.onrender.com](https://blue-carbon-ai.onrender.com/health)
 
-Hosted on free tiers (Vercel + Render + Supabase) - the backend and AI service spin down after
-~15 minutes idle, so the first request after a while can take up to ~50 seconds to wake up; a
-reload after that is fast. Hyperledger Fabric runs locally only, not in this hosted deployment -
+Hosted on free tiers (Vercel + Render + Supabase). Render's free tier spins a service down after
+~15 minutes idle - a [scheduled keep-alive workflow](.github/workflows/keep-alive.yml) pings both
+hosted services every 10 minutes specifically so that doesn't happen in practice; if it's ever
+skipped a run, the first request after a while can take up to a couple of minutes to wake up,
+and a reload after that is fast. Hyperledger Fabric runs locally only, not in this hosted deployment -
 see [Why Fabric stays local](docs/DEPLOYMENT.md#why-fabric-stays-local) for why, and
 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for how this deployment itself was put together.
 

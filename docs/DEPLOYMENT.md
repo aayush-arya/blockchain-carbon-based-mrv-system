@@ -79,8 +79,9 @@ The repo's `render.yaml` (Blueprint) deploys both at once.
    specifically only because it's staying in `heuristic` mode, which never loads it anyway.
 4. Once `blue-carbon-ai` is live, copy its URL (top of its Render page, `https://blue-carbon-ai-xxxx.onrender.com`)
    into `blue-carbon-backend`'s `ML_SERVICE_URL` env var and save (triggers a redeploy).
-5. Free-tier services spin down after ~15 minutes idle and take a few seconds to wake on the
-   next request - expected, not a bug. A cold health check confirms both are alive:
+5. Free-tier services spin down after ~15 minutes idle - `.github/workflows/keep-alive.yml`
+   pings both services every 10 minutes specifically to prevent that, so in practice a visitor
+   shouldn't hit a cold start at all. A cold health check confirms both are alive regardless:
    ```bash
    curl https://blue-carbon-backend-xxxx.onrender.com/api/system/health
    ```
@@ -136,5 +137,6 @@ network, not a black-box API response.
 
 Every step above uses a free tier: Supabase's free project tier, Cloudflare R2's free monthly
 allowance (10GB storage, no egress fees), and Render's free web service tier. Render's free
-tier's main real constraint is the cold-start after idling - fine for a portfolio/recruiter
-link, not something to build a paid product on without upgrading.
+tier's main real constraint is the cold-start after idling, kept from actually happening by the
+keep-alive workflow above - a reasonable trick for a portfolio/recruiter link, not something to
+rely on for a real paid product without upgrading the plan instead.
