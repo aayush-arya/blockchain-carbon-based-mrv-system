@@ -37,7 +37,7 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health() -> HealthResponse:
     model_name = PRETRAINED_MODEL_NAME if settings.model_mode == "pretrained" else HEURISTIC_MODEL_NAME
     return HealthResponse(status="ok", model_mode=settings.model_mode, model_name=model_name)
